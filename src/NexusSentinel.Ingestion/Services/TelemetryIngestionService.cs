@@ -21,7 +21,7 @@ public class TelemetryIngestionService : TelemetryService.TelemetryServiceBase
         await foreach(var record in requestStream.ReadAllAsync())
         {
             // For now we just log the data, but later we can add more processing
-            _logger.LogInformation($"Received Data -> Device: {record.DeviceId} Temp: {record.Temperature} Time: {record.Timestamp}");
+            _logger.LogInformation($"Received Data -> Device: {record.DeviceId} Temp: {record.Temperature:F2} Time: {record.Timestamp}");
         }
 
         // Return an acknowledgment to the client after all messages are processed

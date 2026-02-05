@@ -68,3 +68,25 @@
   - **A:**
     - **1. Liste (IntelliSense):** Klasik önericidir. Projendeki derlenmiş sınıfları, değişkenleri kural tabanlı listeler. Kesindir. (SS 1'deki alt alta liste).
     - **2. Hayalet Yazı (Ghost Text):** AI tabanlıdır (Copilot veya Visual Studio IntelliCode). Senin kod yazma alışkanlığına ve bağlama bakarak "Muhtemelen bunu yazacaksın" diye tahmin yürütür. (SS 2'deki silik gri yazı).
+
+- **Q:** Grpc.Net.Client Grpc'nin Client package'ı ise, Server package'ı hangisi? Tools mu? Simulator bir Grpc Client değil mi? Evetse, neden Tools package'ını da oraya ekledik? (done)
+  - **A:**
+    - **Server Paketi:** `Grpc.AspNetCore`. (Ingestion servisinde bu vardı, çünkü o bir sunucu).
+    - **Client Paketi:** `Grpc.Net.Client`. (Simülatör bir istemci olduğu için bunu ekledik).
+    - **Tools Paketi:** `Grpc.Tools`. Bu çalışma zamanında (Runtime) BİR İŞE YARAMAZ. Sadece **Derleme Zamanı (Build Time)** aracıdır.
+    - **Neden Ekledik?** Normalde `.proto` dosyaları `Shared` projesinde olduğu ve referans verdiğimiz için Simülatör'e eklemeyebilirdik. Ancak bazen IDE'ler (Intellisense) proto dosyalarını doğru taramak için bu araca ihtiyaç duyar. Teknik olarak `Shared`'dan referans aldığımız için zorunlu değildi, garanti olsun diye ekledik. İleride silebiliriz.
+
+- **Q:** `DateTimeOffset.UtcNow.ToUnixTimeSeconds()` neden `DateTime`'da yok? (done)
+  - **A:** `DateTime`, zaman dilimi (timezone) bilgisini net taşımaz; "hangi zamana göre saat 12?" sorusu muallaktır.
+    - Unix Epoch, **UTC+0**'a göre hesaplanır. Bu yüzden bu metod, sadece zaman farkını kesin bildiği `DateTimeOffset` yapısına koyulmuştur. Hata yapmanı engellemek için `DateTime`'a koymamışlardır.
+
+- **Q:** Kodları açıkla:
+    `var streamCalls = client.StreamTelemetry();`
+    `var streamWriter = streamCalls.RequestStream;`
+    `await streamWriter.CompleteAsync();`
+    `var response = await streamCalls;` (done)
+  - **A:**
+    1.  `client.StreamTelemetry()`: "Alo santral, ben bir çağrı başlatıyorum ama kapatma, konuşmam uzun sürecek" der. (Bağlantı açılır, ama cevap beklenmez).
+    2.  `streamCalls.RequestStream`: O açık hattın "mikrofonunu" eline alırsın. Buradan konuşup veri göndereceksin.
+    3.  `streamWriter.CompleteAsync()`: "Benim diyeceklerim bitti, konuşmamı sonlandırıyorum, tamam." dersin. Mikrofonu kapatırsın.
+    4.  `await streamCalls`: "Eee, ne diyorsun anlattıklarıma?" diye karşı tarafın (sunucunun) son cevabını beklersin (Ack).
