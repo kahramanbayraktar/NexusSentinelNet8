@@ -38,3 +38,33 @@
   - **A:** 
     - **Düzenleme:** Asla! O dosyalar her `build` işleminde otomatik üretilir ve sıfırlanır. Oraya yazdığın her şey silinir.
     - **Hakimiyet:** İçeriğini okumana gerek yok (çok karışıktır). Sadece `telemetry.proto` içinde tanımladığın mesajların C# class'larına dönüştüğünü bilmen yeterli. Örneğin `TelemetryRecord` adında bir C# class'ın otomatik oluştuğunu bilip onu kullanacaksın.
+
+- **Q:** Multiplexed streaming nedir? (done)
+  - **A:** Tek bir fiziksel bağlantı (TCP bağlantısı) üzerinden, aynı anda birden fazla veri akışını birbirine karıştırmadan gönderebilme yeteneğidir.
+    - *Analoji:* Tek bir otoyol şeridinden (TCP Connection) hem kırmızı arabaların (Akış A) hem de mavi arabaların (Akış B) sırayla gitmesi ama varışta ayrıştırılmasıdır.
+    - *Farkı:* Eski REST/HTTP1.1'de her istek için yeni bağlantı açılırdı (pahalı). gRPC/HTTP2'de tek bağlantı sürekli açık kalır ve yüzlerce cihaz verisi bu tek borudan akar. Verimliliği sağlayan budur.
+
+- **Q:** Bir önceki soruya ek: Yani çift yönlü anlamına gelmiyor? (done)
+  - **A:** Tek başına "Multiplexing" çift yönlü demek değildir; sadece "çokluluk" demektir.
+    - Ancak gRPC, HTTP/2 üzerinde çalıştığı için **hem Multiplexing hem de Bidirectional Streaming** (Çift Yönlü Akış) özelliklerine sahiptir.
+    - Yani evet, aynı borudan (bağlantıdan) hem sen sunucuya veri basabilirsin hem de sunucu sana o an cevap dönebilir. (Tıpkı telefon görüşmesi gibi, Telsiz gibi sırayla değil).
+
+- **Q:** ServerCallContext nedir? (done)
+  - **A:** HTTP dünyasındaki `HttpContext`'in gRPC karşılığıdır.
+    - İstemcinin gönderdiği Metadata'ya (Headerlar), kimlik bilgilerine (Auth), iptal taleplerine (`CancellationToken`) ve IP adresine buradan erişiriz.
+
+- **Q:** `async Task<TelemetryAck> StreamTelemetry` üzerinden bana asenkron çalışmayı anlat. (done)
+  - **A:** 
+    - `async`: Metodun içindeki işlemlerin (örn: veri okuma) thread'i bloklamadan, arka planda yapılacağını belirtir.
+    - `Task<TelemetryAck>`: "Sana hemen bir sonuç veremem çünkü akış ne zaman biter bilmiyorum, ama işim bitince söz sana bir `TelemetryAck` döneceğim" vaadidir.
+    - `IAsyncStreamReader`: Klasik `List` gibi tüm verinin gelmesini beklemez. Musluktan su damlar gibi veri geldikçe (`await foreach`), sistem uyanır ve o veriyi işler. Veri yokken sistem uyur (CPU harcamaz).
+
+- **Q:** `app.MapGrpcService<TelemetryIngestionService>()` tam olarak ne yapar? (done)
+  - **A:** Yazdığın sınıfı Kestrel Web Sunucusu'na "Tanıtır" (Register eder).
+    - Protobuf dosyasındaki paket ismine bakar (örn: `telemetry.TelemetryService`).
+    - Gelen HTTP/2 isteklerinden URL'i `/telemetry.TelemetryService/StreamTelemetry` olanları yakalar ve senin `StreamTelemetry` metoduna yönlendirir (Routing).
+
+- **Q:** IDE'de 2 farklı suggestion aracı görüyorum (Screenshots). Bu ikisi nedir? (done)
+  - **A:**
+    - **1. Liste (IntelliSense):** Klasik önericidir. Projendeki derlenmiş sınıfları, değişkenleri kural tabanlı listeler. Kesindir. (SS 1'deki alt alta liste).
+    - **2. Hayalet Yazı (Ghost Text):** AI tabanlıdır (Copilot veya Visual Studio IntelliCode). Senin kod yazma alışkanlığına ve bağlama bakarak "Muhtemelen bunu yazacaksın" diye tahmin yürütür. (SS 2'deki silik gri yazı).
