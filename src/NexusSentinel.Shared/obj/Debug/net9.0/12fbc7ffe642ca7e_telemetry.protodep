@@ -1,0 +1,2 @@
+obj\Debug\net9.0\Protos/Telemetry.cs \
+obj\Debug\net9.0\Protos/TelemetryGrpc.cs: Protos/telemetry.proto

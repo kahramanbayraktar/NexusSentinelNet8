@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+// Namespace for C# code generation
+option csharp_namespace = "NexusSentinel.Shared.Protos";
+
+package telemetry;
+
+// The service definition.
+service TelemetryService {
+  // Streams data from device to server (Client Streaming)
+  rpc StreamTelemetry (stream TelemetryRecord) returns (TelemetryAck);
+}
+
+// The data packet sent by the IoT Device
+message TelemetryRecord {
+  string device_id = 1;
+  double temperature = 2;
+  double humidity = 3;
+  double vibration_level = 4; // Critical for motor health
+  int64 timestamp = 5; // Unix epoch time
+}
+
+// The simple acknowledgment from the server
+message TelemetryAck {
+  bool success = 1;
+  string message = 2;
+}

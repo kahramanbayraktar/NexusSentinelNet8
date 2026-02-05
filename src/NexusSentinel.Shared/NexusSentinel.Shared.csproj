@@ -15,4 +15,10 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+  <!-- Defining gRPC Protobuf file -->
+  <!-- GrpcServices="Both": Means both server and client code will be generated -->
+    <Protobuf Include="Protos\telemetry.proto" GrpcServices="Both" />
+  </ItemGroup>
+
 </Project>
