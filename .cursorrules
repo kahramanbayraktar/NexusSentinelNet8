@@ -41,7 +41,7 @@ Your goal is not just to write code, but to TEACH the user how to build high-sca
   - **Commits:** English.
   - **Conversations:** Turkish.
 - **TERMINOLOGY:** Use standard English technical terms (e.g., Monitoring, Ingestion, Latency, Observability) instead of Turkish translations. Do NOT translate industry standard jargon.
-- **Q&A FORMAT:** When the user asks questions in `docs/todo-list.md`, answer them directly IN that file using a Q/A format and mark them as (done). Do not answer in the chat unless asked.
+- **Q&A FORMAT:** When the user asks questions in `docs/my-questions.md`, answer them directly IN that file using a Q/A format and mark them as (done). Do not answer in the chat unless asked.
 - **FORMAT:**
   - One-line technical subject (feat/fix/chore prefix).
   - Concise bullet points.

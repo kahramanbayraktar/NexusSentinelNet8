@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "vQ482wPX338=",
+  "dgSpecHash": "5ifSZqYkZdE=",
   "success": true,
   "projectFilePath": "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Ingestion\\NexusSentinel.Ingestion.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\kah_r\\.nuget\\packages\\confluent.kafka\\2.13.0\\confluent.kafka.2.13.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\google.protobuf\\3.33.5\\google.protobuf.3.33.5.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.aspnetcore\\2.64.0\\grpc.aspnetcore.2.64.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.aspnetcore.server\\2.64.0\\grpc.aspnetcore.server.2.64.0.nupkg.sha512",
@@ -13,6 +14,7 @@
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.net.clientfactory\\2.64.0\\grpc.net.clientfactory.2.64.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.net.common\\2.76.0\\grpc.net.common.2.76.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.tools\\2.64.0\\grpc.tools.2.64.0.nupkg.sha512",
+    "C:\\Users\\kah_r\\.nuget\\packages\\librdkafka.redist\\2.13.0\\librdkafka.redist.2.13.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\6.0.0\\microsoft.extensions.dependencyinjection.6.0.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\microsoft.extensions.http\\6.0.0\\microsoft.extensions.http.6.0.0.nupkg.sha512",

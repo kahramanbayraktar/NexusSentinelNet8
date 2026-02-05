@@ -90,3 +90,37 @@
     2.  `streamCalls.RequestStream`: O açık hattın "mikrofonunu" eline alırsın. Buradan konuşup veri göndereceksin.
     3.  `streamWriter.CompleteAsync()`: "Benim diyeceklerim bitti, konuşmamı sonlandırıyorum, tamam." dersin. Mikrofonu kapatırsın.
     4.  `await streamCalls`: "Eee, ne diyorsun anlattıklarıma?" diye karşı tarafın (sunucunun) son cevabını beklersin (Ack).
+
+- **Q:** Kafka'yı neden kullanıyoruz? (done)
+  - **A:** 
+    - **Buffer (Şok Emici):** IoT cihazlarından saniyede binlerce veri gelirken, veritabanı veya işlemci servis yavaşlarsa sistem tıkanmasın diye. Kafka veriyi kuyrukta tutar, arkadaki servisler uygun oldukça işler (Backpressure).
+    - **Decoupling (Bağımlılığı Koparma):** Ingestion servisi, veriyi kimin işlediğini bilmek zorunda değildir. Sadece Kafka'ya atar ve işine bakar.
+
+- **Q:** Kafka'nın BootstrapServers parametresi ne işe yarar? (done)
+  - **A:** Kafka kümesine (Cluster) ilk girişi sağlayan "Tanışma Noktasıdır".
+    - İstemci (Producer/Consumer) bu adrese bağlanıp "Selam, kümede başka hangi sunucular var, lider kim?" diye sorar (Metadata Request).
+    - Buradan aldığı harita ile diğer sunucularla konuşur. Yani tüm sunucuları tek tek yazmamıza gerek kalmaz.
+
+- **Q:** "ProducerBuilder kullanarak producer'ı inşa etmek ve sisteme Singleton olarak eklemek. (Producer'lar thread-safe'tir, tek bir tane olması yeterlidir ve performanslıdır)."
+Bu ifadeyi açar mısın? (done)
+  - **A:**
+    - **Producer Oluşturmak Pahalıdır:** Kafka ile bağlantı kurmak, metadata çekmek zaman ve kaynak harcar. Her veri geldiğinde `new Producer()` dersen sistem yavaşlar.
+    - **Singleton (Tekillik):** "Uygulama boyunca SADECE BİR TANE Producer üret ve herkes onu kullansın" demektir.
+    - **Thread-Safe (İplik Güvenli):** Aynı anda 100 farklı yerden (thread) bu tek producer nesnesini kullanıp veri gönderebilirsin; birbirlerinin işini bozmazlar, çakışma olmaz. Confluent.Kafka kütüphanesi bunu garanti eder.
+    - *Sonuç:* Tek bir nesne ile binlerce isteği güvenle ve ışık hızında karşılarız.
+
+- **Q:** "Performans Notu: Ingestion servisinde 'await' kullanmadan Produce yapmak (Fire-and-forget) daha hızlıdır. Ancak veri kaybı olmasın/garanti olsun diye ProduceAsync kullanımı da yaygındır. Şimdilik senkron Produce kullanıyoruz, arka planda bufferlanıp gider." Bu açıklamayı detaylandırabilir misin? (done)
+  - **A:**
+    - **Produce (Senkron/Fire-and-forget):** Sen tetiğe basarsın, veri kütüphanenin içindeki hafıza kuyruğuna (internal buffer) alınır. Metod hemen döner. Kafka broker'ından "Veri ulaştı" cevabı gelmesini beklemezsin. Çok hızlıdır ama o sırada elektrik kesilirse kuyruktaki veri uçabilir.
+    - **ProduceAsync (Asenkron/Guaranteed):** Veriyi gönderir ve Kafka broker'ından "Tamam, diske yazdım" (Ack) yanıtı gelene kadar `await` ile beklersin. Daha güvenlidir ama her mesajda milisaniyelerce beklemek toplam performansı (throughput) düşürür.
+    - **Neden Senkron Seçtik?** IoT verisi genelde çok yoğundur. Arka planda kütüphane bu verileri paketleyip (batching) topluca gönderir, bu da verimliliği artırır. Birkaç verinin kaybı göze alınabilirse bu yöntem tercih edilir.
+
+- **Q:** sync = fire-and-forget, async = wait-and-confirm. Böyle diyebilir miyiz? Ve her zaman böyle midir? (done)
+  - **A:**
+    - **Kafka Özelinde:** Evet, `Produce` metodunu fire-and-forget, `ProduceAsync` metodunu wait-and-confirm gibi düşünebilirsin.
+    - **Genel Programlamada:** Genellikle tam tersidir! Normalde `Sync` (senkron) bir işlem baka baka beklemek (blocking) demektir. `Async` (asenkron) ise "sen işine bak, bitince bana haber ver" demektir. 
+    - **İstisna:** Kafka kütüphanesi performansı artırmak için `Produce` metodunu "belleğe yazıp hemen dönen" (non-blocking) bir yapıda kurmuş. Bu yüzden kavramlar burada biraz kafa karıştırabilir.
+
+- **Q:** docker-compose.yml dosyasının ana dizinde bir klasörde olması sorun oluyor mu? Direkt ana dizinde olması gerekmiyor mu? (done)
+  - **A:** Sorun olmaz, hatta büyük projelerde "Infrastructure" veya "Docker" klasörü altında tutmak tertemiz bir `root` dizini sağlar.
+    - **Dikkat:** Sadece terminalde komutu çalıştırırken o klasöre girmeli veya `docker-compose -f docker/docker-compose.yml up` şeklinde dosya yolunu göstermelisin. Proje içindeki servisler (C# kodları) zaten `localhost` üzerinden bağlandığı için dosyanın nerede olduğundan etkilenmezler.

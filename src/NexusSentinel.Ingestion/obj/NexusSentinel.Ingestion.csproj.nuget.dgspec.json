@@ -48,6 +48,10 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "Confluent.Kafka": {
+              "target": "Package",
+              "version": "[2.13.0, )"
+            },
             "Grpc.AspNetCore": {
               "target": "Package",
               "version": "[2.64.0, )"

@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Grpc.Core;
 using NexusSentinel.Shared.Protos; // Comes from the NexusSentinel.Shared project
+using Confluent.Kafka;
+using System.Text.Json;
 
 namespace NexusSentinel.Ingestion.Services;
 
@@ -9,9 +11,11 @@ namespace NexusSentinel.Ingestion.Services;
 public class TelemetryIngestionService : TelemetryService.TelemetryServiceBase
 {
     private readonly ILogger<TelemetryIngestionService> _logger;
-    public TelemetryIngestionService(ILogger<TelemetryIngestionService> logger)
+    private readonly IProducer<string, string> _producer;
+    public TelemetryIngestionService(ILogger<TelemetryIngestionService> logger, IProducer<string, string> producer)
     {
         _logger = logger;
+        _producer = producer;
     }
 
 // Client Streaming method: Device continuously sends multiple messages, Server sends one ack after all messages are received
@@ -22,6 +26,17 @@ public class TelemetryIngestionService : TelemetryService.TelemetryServiceBase
         {
             // For now we just log the data, but later we can add more processing
             _logger.LogInformation($"Received Data -> Device: {record.DeviceId} Temp: {record.Temperature:F2} Time: {record.Timestamp}");
+
+            // Send the data to Kafka
+            // Performance Note: Ingestion service uses 'await' to produce (Fire-and-forget) faster. 
+            // However, to ensure data integrity, ProduceAsync usage is also common. 
+            // Currently using synchronous Produce, which buffers and sends in the background.
+            var jsonPayload = JsonSerializer.Serialize(record);
+            _producer.Produce("telemetry", new Message<string, string>
+            {
+                Key = record.DeviceId,
+                Value = jsonPayload
+            });
         }
 
         // Return an acknowledgment to the client after all messages are processed
