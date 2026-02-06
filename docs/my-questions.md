@@ -124,3 +124,95 @@ Bu ifadeyi açar mısın? (done)
 - **Q:** docker-compose.yml dosyasının ana dizinde bir klasörde olması sorun oluyor mu? Direkt ana dizinde olması gerekmiyor mu? (done)
   - **A:** Sorun olmaz, hatta büyük projelerde "Infrastructure" veya "Docker" klasörü altında tutmak tertemiz bir `root` dizini sağlar.
     - **Dikkat:** Sadece terminalde komutu çalıştırırken o klasöre girmeli veya `docker-compose -f docker/docker-compose.yml up` şeklinde dosya yolunu göstermelisin. Proje içindeki servisler (C# kodları) zaten `localhost` üzerinden bağlandığı için dosyanın nerede olduğundan etkilenmezler.
+
+
+- **Q:** Console app ile Worker app arasındaki farklar neler? Bu projede Redis katmanı için neden Worker app kullandık? Detaylı anlat. (done)
+  - **A:**
+    - **Console App:** "Başla ve Bitir" işleri için idealdir (örn: script çalıştırmak, veri taşımak). Basittir ama sürekli çalışan bir servis olmak için ekstra kod (döngüler, hata yönetimi) yazman gerekir.
+    - **Worker Service:** "Sürekli Çalışan Arka Plan Hizmeti"dir. İçinde Dependency Injection, Logging, Configuration (appsettings) hazır gelir. Linux'ta Daemon, Windows'ta Service olarak çalışmaya doğuştan yeteneklidir.
+    - Bu servis hiç durmadan 7/24 Kafka dinleyecek, Console şablonu buna yetersiz kalırdı.
+
+- **Q** Kafka ayarlarındaki GroupId nedir? (done)
+  - **A:** Kafka'nın en güçlü özelliklerinden biri olan "Consumer Group" mekanizmasının kimliğidir.
+    - **Yük Dağılımı (Scaling):** Eğer aynı `GroupId` ile 3 farklı Processor çalıştırırsan, Kafka gelen verileri bu 3 Processor'a *paylaştırır*. Yani her biri verinin %33'ünü işler.
+    - **Yayıncılık (Broadcasting):** Eğer *farklı* `GroupId` verirsen (örneğin biri "ProcessorGroup", diğeri "ArchiveGroup"), Kafka verinin *kopyasını* her gruba ayrı ayrı gönderir.
+    - **Kaldığı Yer (Offset):** Sistem çökerse, Kafka bu `GroupId`'nin nerede kaldığını hatırlar. Geri geldiğinde işlenmemiş veriden devam eder.
+
+- **Q** Bir önceki soruya ek: Bu Processor dediğimiz şey tam olarak nedir? Bilgisayarın fiziksel işlemcisi midir? Yoksa bir yazılım mıdır? (done)
+  - **A:** Kesinlikle bir **Yazılım (Software)** parçasıdır.
+    - Fiziksel işlemci (CPU) donanımdır. Bizim kodumuz olan "Processor Service", bu donanımı kullanarak veriyi işleyen bir Microservice'dir. Adının "Processor" olması, veriyi alıp, işleyip (process), dönüştürmesinden gelir.
+
+- **Q** .NET'te program.cs dosyalarında gördüğümüz builder ve app değişkenleri neyi temsil eder? Her bir app tipi için (Console, Worker, Web API) anlat. (done)
+  - **A:**
+    - **Builder (İnşaat Şantiyesi):** Binayı yapmadan önce malzemeleri (Config) ve işçileri (Services/DI) topladığımız yerdir.
+      - *Worker/Console:* `HostApplicationBuilder`. Web özellikleri yoktur, hafiftir.
+      - *Web API:* `WebApplicationBuilder`. Ekstra olarak portları, sunucu ayarlarını (Kestrel) bilir.
+    - **App / Host (Bitmiş Bina):** `builder.Build()` dediğimizde şantiye biter, bina ortaya çıkar. `Run()` dediğimizde kapılar açılır.
+      - *Worker/Console:* `IHost`. Sadece arka planda çalışır.
+      - *Web API:* `WebApplication`. Gelen HTTP isteklerini karşılayan kapıları (Middleware) vardır.
+
+- **Q** InvalidOperationException ne zaman tercih edilir? (done)
+  - **A:** Bir nesnenin veya sistemin **"şu anki durumu"** o işlemi yapmaya uygun olmadığında kullanılır.
+    - *Örnek:* Araba boş vitesteyken gaza basarsan sorun yok, ama motor *kapalıyken* gaza basarsan `InvalidOperationException` alırsın.
+    - *Bizim Durum:* "Redis Connection String yok" demek, uygulamanın çalışması için gereken temel durum bozuk demektir. Bu bir parametre hatası (`ArgumentException`) değil, sistemin genel halinin hatasıdır.
+
+- **Q** "builder.Services.AddHostedService<Worker>();" Bu kodu neden yazıyoruz? Zaten bir Worker projesi oluşturduk? Worker ile pipeline neden zaten entegre değil? (done)
+  - **A:**
+    - **Projeyi Oluşturmak Yetmez:** Proje şablonu sadece dosya yapısını kurar. .NET Framework, `Worker` sınıfının varlığından habersizdir. Ona "Bak elimde böyle bir sınıf var, bunu al ve çalıştırmaya başla" emrini bu kodla veririz.
+    - **Dependency Injection (DI) Nedir?** `builder.Services.Add...` demek, "Alet çantasına (Container) bir alet koymak" demektir.
+      - **AddTransient:** Her isteyene **YENİ** bir tane ver. (Hafif, çerezlik nesneler).
+      - **AddScoped:** Her HTTP isteği (Request) için **BİR** tane ver. (Veritabanı bağlantıları).
+      - **AddSingleton:** Uygulama ölene kadar **TEK** bir tane yarat ve herkese onu ver. (Cache, Ayarlar).
+      - **AddHostedService:** Bu özel bir Singleton'dır. Uygulama başlarken otomatik olarak `StartAsync` tetiklenir ve uygulama kapanana kadar çalışır. Arka plan işçileri için tek yol budur.
+
+
+- **Q:** async bir metodu çağırırken neden await kullanıyoruz? Zaten async olarak tanımladık? (done)
+  - **A:**
+    - **Async (Tanım):** `async` kelimesi sadece "Bu metodun içinde bekleme (`await`) yapılabilir" ve "Geriye sonuç yerine bir `Task` (Gelecek Vaadi) döneceğim" garantisidir. Tek başına metodu sihirli bir şekilde farklı bir evrende çalıştırmaz.
+    - **Await (Eylem):** `await` komutu ise **"Bu işlem bitene kadar buradaki akışı durdur, thread'i (iş parçacığını) boşa çıkar, sonuç gelince kaldığın yerden devam et"** demektir.
+    - **Kullanmazsan Ne Olur?** Eğer `await` yazmazsan, kod o satırda işin bitmesini beklemez, *hemen* bir sonraki satıra geçer (Fire-and-forget). Arka plandaki iş bitmeden program ilerler, sonuç alamazsın ve hata oluşursa haberin bile olmaz (Exception Swallowing).
+    - **Özet:** `async` yeteneği ("Ben bekleyebilirim") tanımlar, `await` ise o yeteneği ("Hadi bekle") kullanır.
+
+
+- **Q:** consumer değişkenini using ile tanımlamış olmamıza rağmen neden finally bloğunda consumer.Close() çağırıyoruz? (done)
+  - **A:**
+    - Normalde `using` bloğu bitince `Dispose()` çalışır ve kaynaklar serbest bırakılır. Bu genel kuraldır ve doğrudur.
+    - **Kafka Farkı:** Kafka, TCP protokolü üzerinden sürekli açık ve canlı bir bağlantı tutar. `Dispose()` metodu bu bağlantıyı "çat" diye kesebilir (Hard Kill).
+    - **Close() Ne Yapar?** `Close()` metodu daha "naziktir" (Graceful Shutdown). Önce sunucuya "Ben gruptan ayrılıyorum" der (`LeaveGroup` isteği), grubun dengelenmesini (Rebalance) tetikler, bekleyen son offset'leri commit eder.
+    - **Analoji:** `Dispose()` fişi prizden çekmekse, `Close()` Windows'u "Bilgisayarı Kapat" menüsünden kapatmaktır. Veri bütünlüğü ve grup sağlığı için önce `O(1)` sürede `Close`, sonra `Dispose` (using sayesinde otomatik) önerilir.
+
+- **Q:** C#'taki primary constructor konseptini anlat. (done)
+  - **A:**
+    - C# 12 ile gelen, sınıfın tepesinde parametre tanımlayarak "Basmakalıp Kodları" (Boilerplate) azaltan özelliktir.
+    - **Eski Stil:** Constructor metodu aç, parametre al, bunları yukarıda tanımladığın `private readonly` alanlara (field) tek tek elle eşle (`this._logger = logger` vs).
+    - **Primary Constructor:** Sınıf isminin yanına parantez açıp `(ILogger logger, IConfiguration config)` yazarsın. Bitti! Artık o `logger` ve `config` tüm sınıf gövdesinde (hatta metodlarda değil, field initalization kısımlarında) erişilebilir olur.
+    - **Senin Kodunda:** `Worker.cs` dosyasında `public class Worker(ILogger<Worker> logger...) : BackgroundService` diyerek bunu kullandık. Kod kalabalığını %40 azaltır ve daha okunaklı yapar.
+
+- **Q:** docker-compose -f docker/docker-compose.yml up --build -d processor
+  Parametreleri açıkla. (done)
+  - **A:**
+    - `-f docker/docker-compose.yml`: **File (Dosya).** Standart `docker-compose.yml` yerine başka bir dosya kullanacağımızı belirtir. Dosyamız `docker` klasöründe olduğu için bunu belirttik.
+    - `up`: Servisleri oluştur ve başlat.
+    - `--build`: Başlatmadan önce image'ları **yeniden derle**. (Kod değiştirdiğinde şarttır).
+    - `-d`: **Detached (Ayrık).** Konteyneri arka planda çalıştır. Terminali kilitleme, bana geri ver.
+    - `processor`: Tüm seti değil, **sadece** `processor` servisini (ve bağımlılıklarını) ayağa kaldır.
+
+- **Q** .dockerignore kullanımının amacı nedir? Kullanılmazsa ne olur? (done)
+  - **A:**
+    - **Amaç:** Docker'ın "Build Context" (Derleme Bağlamı) aşamasında, gereksiz dosya ve klasörlerin (git geçmişi, derlenmiş yerel dosyalar, IDE ayarları) Docker motoruna kopyalanmasını engellemektir.
+    - **Kullanılmazsa Ne Olur?**
+      1.  **Hız:** Docker, `bin/obj` veya `.git` gibi devasa klasörleri arka plana kopyalamaya çalışır. Build süresi saniyelerden dakikalara (veya buradaki gibi 40 dakikaya) çıkar.
+      2.  **Boyut:** Oluşan image boyutu gereksiz büyür.
+      3.  **Güvenlik:** `.env` gibi hassas dosyalar yanlışlıkla image içine kopyalanabilir.
+
+- **Q** docker-compose -f docker/docker-compose.yml up --build -d processor
+    Bu komutu açıkla. (done)
+    - **A:**
+      - `-f docker/docker-compose.yml`: **File (Dosya).** Standart `docker-compose.yml` yerine başka bir dosya kullanacağımızı belirtir. Dosyamız `docker` klasöründe olduğu için bunu belirttik.
+      - `up`: Servisleri oluştur ve başlat.
+      - `--build`: Başlatmadan önce image'ları **yeniden derle**. (Kod değiştirdiğinde şarttır).
+      - `-d`: **Detached (Ayrık).** Konteyneri arka planda çalıştır. Terminali kilitleme, bana geri ver.
+      - `processor`: Tüm seti değil, **sadece** `processor` servisini (ve bağımlılıklarını) ayağa kaldır.
+
+- **Q** `docker logs -f nexus-processor` vs `docker-compose -f docker/docker-compose.yml logs -f processor`
+  - **A:**

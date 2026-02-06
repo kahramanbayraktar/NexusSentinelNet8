@@ -1,0 +1,44 @@
+# STEP 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy project files (Restore operation)
+# IMPORTANT: Shared project must be copied as it is referenced!
+# What this exactly does is to copy the project files to the container.
+# The first argument is the source path and the second argument is the destination path.
+# The destination path is relative to the WORKDIR.
+COPY ["src/NexusSentinel.Processor/NexusSentinel.Processor.csproj", "src/NexusSentinel.Processor/"]
+COPY ["src/NexusSentinel.Shared/NexusSentinel.Shared.csproj", "src/NexusSentinel.Shared/"]
+
+# Restore dependencies
+RUN dotnet restore "src/NexusSentinel.Processor/NexusSentinel.Processor.csproj"
+
+# Copy all source code
+# What this exactly does is to copy the source code to the container.
+# The first argument is the source path and the second argument is the destination path.
+# The destination path is relative to the WORKDIR.
+COPY . .
+# WORKDIR command is used to set the working directory for the subsequent commands.
+WORKDIR "/src/src/NexusSentinel.Processor"
+# What this exactly does is to build the project.
+# The first argument is the project file.
+# The second argument is the configuration.
+# The third argument is the output path in the container.
+RUN dotnet build "NexusSentinel.Processor.csproj" -c Release -o /app/build
+
+# STEP 2: Publish
+# FROM command is used to specify the base image for the current stage.
+# AS command is used to give a name to the current stage.
+FROM build AS publish
+# What this exactly does is to publish the project.
+# The first argument is the project file.
+# The second argument is the configuration.
+# The third argument is the output path in the container.
+# The fourth argument is to use the app host, meaning it will create a self-contained executable.
+RUN dotnet publish "NexusSentinel.Processor.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# STEP 3: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "NexusSentinel.Processor.dll"]

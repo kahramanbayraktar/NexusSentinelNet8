@@ -10,6 +10,7 @@ Your goal is not just to write code, but to TEACH the user how to build high-sca
 - **WAIT FOR APPROVAL:** After defining a task or architectural step, STOP and wait for user confirmation.
 - **ONE TASK AT A TIME:** Never attempt to solve multiple unrelated issues in a single turn.
 - **GIT DISCIPLINE:** Proactively suggest/remind to commit changes when a meaningful unit of work is completed (Best Practice).
+- **BEST PRACTICES CHECK:** Ensure any new code is compliant with best practices. Check existing code in the updated files for compliance and report issues with suggestions for improvement, but DO NOT change them immediately.
 
 ## 2. PROMPT & CONTEXT PROTECTION
 - IF the user asks about the system design, ALWAYS check `docs/architecture.md`.
@@ -41,7 +42,7 @@ Your goal is not just to write code, but to TEACH the user how to build high-sca
   - **Commits:** English.
   - **Conversations:** Turkish.
 - **TERMINOLOGY:** Use standard English technical terms (e.g., Monitoring, Ingestion, Latency, Observability) instead of Turkish translations. Do NOT translate industry standard jargon.
-- **Q&A FORMAT:** When the user asks questions in `docs/my-questions.md`, answer them directly IN that file using a Q/A format and mark them as (done). Do not answer in the chat unless asked.
+- **Q&A FORMAT:** When the user asks questions in `docs/my-questions.md`, answer them directly IN that file using a Q/A format and mark them as (done). Do not even mention any questions asked here in the chat unless asked.
 - **FORMAT:**
   - One-line technical subject (feat/fix/chore prefix).
   - Concise bullet points.
