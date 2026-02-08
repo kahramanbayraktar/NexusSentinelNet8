@@ -502,6 +502,14 @@ docker ne zaman cache'ten alır, ne zaman yeniden oluşturur? Burada oluşturuld
 docker-compose -f docker/docker-compose.yml up -d
 
 
-- **Q** Her bir proje dizinine .dockerignore dosyası eklemnin faydaları nedir?
+- **Q** Her bir proje dizinine .dockerignore dosyası eklemnin faydaları nedir? (done)
+  - **A:**
+    1.  **Build Hızı:** Docker, build işleminin başında projedeki dosyaları kendi "context"ine kopyalar. `bin`, `obj`, `.git` gibi binlerce küçük dosyayı kopyalamak dakikalar sürebilir. `.dockerignore` ile bunları hariç tutarak bu süreyi saniyelere indiririz.
+    2.  **Imaj Boyutu:** Gereksiz dosyaların son Docker imajına girmesini engelleyerek imajın daha hafif (lightweight) olmasını sağlar.
+    3.  **Güvenlik:** Yerel bilgisayardaki gizli ayar dosyalarının (`appsettings.json`'daki API keyler veya backup dosyaları) kazara imaja dahil edilmesini önler.
 
-- **Q** Bu projedeki event-driven bölümler neler? Görüyorum ki sadece RabbitMQ'lu kısım için bu terimi kullanıyorsun.
+- **Q** Bu projedeki event-driven bölümler neler? Görüyorum ki sadece RabbitMQ'lu kısım için bu terimi kullanıyorsun. (done)
+  - **A:** Aslında projede **iki aşamalı** bir "olay tabanlı" (event-based) yapı var:
+    1.  **Telemetry Data (Kafka - Stream-Driven):** Cihazın her gönderdiği veri aslında bir "telemetri olayıdır". Ancak bu veriler çok yoğun ve sürekli olduğu için buna genelde "Streaming" diyoruz. Processor bu akışı dinleyip sistemi güncel tutar.
+    2.  **Alerts (RabbitMQ - Event-Driven):** İşte asıl "Event-Driven" ruhu burada. Sıradan telemetriden farklı olarak, "Sıcaklık 50'yi geçti!" durumu **iş kurallarına dayalı kritik bir olay (event)**'dir. Bu event oluştuğunda sistem bir çığlık atar (RabbitMQ Publish) ve bu sesi duyan her servis (Dashboard, SMS, Mail) kendi işini yapar.
+    - **Neden RabbitMQ için vurguladık?** Çünkü Kafka'daki telemetri genellikle "veri hamallığı"dır. RabbitMQ'daki alarm ise "anlamlı bir aksiyon tetikleyicisi"dir. Modern mimaride "Event-Driven" dendiğinde genellikle bu tip aksiyon odaklı mesajlaşmalar kastedilir.
