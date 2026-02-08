@@ -1,0 +1,43 @@
+@using NexusSentinel.Shared.Protos
+
+<div class="card @StatusClass" style="width: 18rem; margin: 10px;">
+    <div class="card-body">
+        <h5 class="card-title">@Record.DeviceId</h5>
+        <h6 class="card-subtitle mb-2 text-muted">@DateTimeOffset.FromUnixTimeSeconds(Record.Timestamp).ToLocalTime().ToString("HH:mm:ss")</h6>
+        
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="fs-4">@Record.Temperature.ToString("0.0") °C</span>
+            <i class="bi @IconClass fs-3"></i>
+        </div>
+        
+        <p class="card-text mt-2">
+            <small>Status: <strong>@StatusText</strong></small>
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public required TelemetryRecord Record { get; set; }
+
+    private string StatusText => Record.Temperature switch
+    {
+        > 90 => "Critical",
+        > 70 => "Warning",
+        _ => "Normal"
+    };
+
+    private string StatusClass => Record.Temperature switch
+    {
+        > 90 => "border-danger text-danger shadow",
+        > 70 => "border-warning text-warning",
+        _ => "border-success text-success"
+    };
+
+    private string IconClass => Record.Temperature switch
+    {
+        > 90 => "bi-thermometer-high",
+        > 70 => "bi-thermometer-half",
+        _ => "bi-thermometer-low"
+    };
+}

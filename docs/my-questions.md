@@ -214,5 +214,175 @@ Bu ifadeyi açar mısın? (done)
       - `-d`: **Detached (Ayrık).** Konteyneri arka planda çalıştır. Terminali kilitleme, bana geri ver.
       - `processor`: Tüm seti değil, **sadece** `processor` servisini (ve bağımlılıklarını) ayağa kaldır.
 
-- **Q** `docker logs -f nexus-processor` vs `docker-compose -f docker/docker-compose.yml logs -f processor`
+- **Q** `docker logs -f nexus-processor` vs `docker-compose -f docker/docker-compose.yml logs -f processor`. Farkları ne? (done)
+   - **A:**
+     - `docker logs`: Doğrudan **Container ID** veya **Container Name** ile çalışır. Docker'ın kendi yerel komutudur. Hızlıdır ama container ismini tam bilmen gerekir (`nexus-processor`).
+     - `docker-compose logs`: **Servis İsmi** ile çalışır (`processor`). docker-compose dosyasındaki mantıksal ismi kullanır. Arkada gidip container ID'sini kendi bulur.
+     - *Fark:* Çalışma prensipleri aynıdır (ikisi de stdout okur). Compose versiyonu, proje bağlamında çalışırken ("processor servisine bak") daha rahattır; Docker versiyonu ise debug yaparken ("şu spesifik container'a bak") daha hızlıdır.
+
+- **Q** `dotnet new blazor -o src/NexusSentinel.Dashboard -n NexusSentinel.Dashboard --interactivity Server`
+bu komuttaki --interactivity Server parametresini açıkla. (done)
+   - **A:**
+     - Blazor'ın .NET 8 ile gelen "Render Mode" seçeneğidir.
+     - **Server:** Tüm UI (Butonlar, tıklamalar) sunucuda işlenir. Tarayıcı ile sunucu arasında bir **SignalR (WebSocket)** tüneli açılır. Sen butona bastığında sinyal sunucuya gider, C# kodu çalışır, DOM güncellemesi geri gelir.
+     - **Avantajı:** Yükleme süresi çok hızlıdır (HTML gelir). SEO dostudur. Veritabanına/Redis'e doğrudan erişebilirsin (API yazmana gerek kalmaz).
+     - **Diğer Seçenek (WebAssembly):** Kodun DLL'leri tarayıcıya iner ve orada çalışır. İlk yükleme yavaştır ama sunucuya yük binmez.
+     - *Bizim Seçimimiz:* Dashboard veriyi Redis'ten okuyacağı için, sunucu tarafında çalışan ve Redis'e direkt erişen "Server" modu en performansı ve kolay yöntemdir.
+
+- **Q** Bir önceki soruyu daha detaylı cevapla. (done)
   - **A:**
+    - **Blazor Nedir?** Microsoft'un modern web arayüzleri oluşturmak için geliştirdiği bir framework'tür. C# ve .NET ekosistemini kullanarak tarayıcıda çalışan zengin kullanıcı arayüzleri (UI) oluşturmanızı sağlar. JavaScript yazmadan, bildiğiniz C# diliyle interaktif web uygulamaları geliştirebilirsiniz.
+    - **Blazor Server Modu Nedir?**
+      - **Çalışma Prensibi:** Uygulamanın kullanıcı arayüzü (UI) tarayıcıda değil, sunucuda çalışır. Tarayıcı ile sunucu arasında sürekli açık duran bir **SignalR (WebSocket)** bağlantısı kurulur.
+      - **İnteraksiyon:** Kullanıcı bir butona tıkladığında veya bir sayfayı değiştirdiğinde, bu olay tarayıcıdan sunucuya bir mesaj olarak gider. Sunucudaki C# kodu bu olayı işler, veritabanını veya Redis'i sorgular, gerekli hesaplamaları yapar ve ardından sadece değişen HTML parçalarını (DOM diff) tarayıcıya geri gönderir. Tarayıcı bu parçaları ekrana yansıtır.
+      - **Avantajları:**
+        1.  **Hızlı İlk Yükleme:** Tarayıcıya sadece HTML ve CSS yüklenir. JavaScript kütüphaneleri indirilmez, bu da sayfanın çok hızlı açılmasını sağlar.
+        2.  **Güvenlik:** Hassas iş mantığı ve veritabanı bağlantıları sunucuda kalır. Tarayıcıya sadece sonuçlar gider, kodunuz veya verileriniz exposed olmaz.
+        3.  **Basitlik:** API yazma ve frontend-backend iletişimi için ek katmanlar kurma ihtiyacı azalır. Doğrudan C# ile her şeye erişebilirsiniz.
+        4.  **Real-time:** SignalR entegrasyonu sayesinde sunucudan anlık veri akışı (push) çok kolaydır.
+      - **Dezavantajları:**
+        1.  **Sunucu Yükü:** Her kullanıcı için sunucuda bir bağlantı ve bellek tutulması gerekir. Çok yüksek kullanıcı sayılarında sunucu kaynakları yetersiz kalabilir.
+        2.  **Bağımlılık:** Kullanıcının internet bağlantısının sürekli ve stabil olması gerekir. Bağlantı koparsa uygulama çalışmaz.
+        3.  **Gecikme (Latency):** Her etkileşim için sunucuya gidiş-dönüş yapıldığı için, çok uzak mesafelerdeki kullanıcılar için küçük gecikmeler hissedilebilir.
+    - **Neden Bizim Projemiz İçin Uygun?**
+      - **Veri Kaynağı:** Verilerimizi **Redis**'ten okuyoruz. Redis, sunucuya çok yakın (genellikle aynı container ağında) çalışan bir in-memory veritabanıdır. Bu nedenle Redis'e erişim çok hızlıdır ve gecikme neredeyse sıfırdır.
+      - **Kullanıcı Sayısı:** Başlangıçta yüzlerce, belki binlerce eş zamanlı kullanıcı olmayacak. Bu nedenle sunucu kaynaklarının yetersiz kalma riski düşüktür.
+      - **Geliştirme Kolaylığı:** API katmanı yazmadan doğrudan Redis'ten veri çekip ekranda göstermek, geliştirme sürecini çok hızlandırır.
+      - **Real-time İhtiyacı:** Dashboard'da anlık veri güncellemeleri istiyoruz. Blazor Server, SignalR ile bunu doğal olarak destekler.
+    - **Alternatif: Blazor WebAssembly (WASM)**
+      - **Çalışma Prensibi:** Uygulamanın tüm C# kodu (DLL'ler) tarayıcıya indirilir ve orada, tarayıcının WebAssembly motoru üzerinde çalışır.
+      - **Avantajı:** Sunucuya yük binmez, tamamen client-side çalışır. İnternet kesilse bile uygulama çalışmaya devam eder.
+      - **Dezavantajı:** İlk yükleme çok daha yavaştır çünkü tüm kodun indirilmesi gerekir. Ayrıca, tarayıcıda çalışan kod olduğu için hassas verilerin sunucuda tutulması gerekir (API zorunlu hale gelir).
+    - **Sonuç:** NexusSentinel projesinde, verilerin Redis'te olması ve geliştirme kolaylığı nedeniyle **Blazor Server** modu en mantıklı ve performanslı seçimdir.
+
+- **Q** `builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConn));`
+Neden Singleton? Detaylı açıkla. (done)
+  - **A:**
+    - `Singleton`: Uygulama ömrü boyunca **TEK BİR TANE** oluşturulur ve herkese o verilir.
+    - **Neden Redis İçin?** Redis bağlantısı (`ConnectionMultiplexer`) kurmak pahalı bir işlemdir (TCP Handshake, Auth vb.).
+    - Bu nesne, .NET tarafında **Thread-Safe** (İplik Güvenli) olarak tasarlanmıştır. Yani tek bir bağlantı üzerinden binlerce paralel isteği (Multiplexing) hatasız yönetebilir.
+    - Eğer `Scoped` veya `Transient` yapsaydık, her gelen istekte yeni bağlantı açıp kapatırdık; bu da hem sunucuyu hem de Redis'i yorar, performansı öldürürdü.
+
+- **Q** `builder.Services.AddScoped<DeviceStateService>();`
+Neden Scoped veya Singleton? Detaylı açıkla. (done)
+  - **A:**
+    - **Neden Scoped?** Genellikle Blazor Server/Web API servisleri `Scoped` yapılır. Blazor Server'da `Scoped`, kullanıcının **oturumu (Circuit)** boyunca yaşar.
+    - Yani Ahmet Bey siteye girdiğinde bir `DeviceStateService` oluşur, çıkana kadar o kullanılır. Mehmet Bey girdiğinde ona ayrı bir tane oluşur.
+    - **Neden Singleton Yapmadık?** Aslında bu servis *state* (durum) tutmadığı için Singleton da olabilirdi. Ancak ilerde kullanıcıya özel filtreleme (örn: "Sadece benim cihazlarımı getir") eklersek, `User` bilgisine ihtiyaç duyarız. `User` bilgisi Scoped (Oturum bazlı) olduğu için, servisimiz de Scoped olmak zorunda kalır. Şimdiden Scoped yapmak güvenli bir standarttır.
+
+- **Q** `if (!json.IsNullOrEmpty) { var record = JsonSerializer.Deserialize<TelemetryRecord>(json!); }`
+    `json!` demeye gerek olmamalı diye düşünüyorum. ama onu koymayınca warning çıkıyor. Neden? (done)
+  - **A:**
+    - `RedisValue` (`json` değişkeni) bir `struct` türüdür. `JsonSerializer`, parametre olarak saf `string` bekler.
+    - `RedisValue` -> `string` dönüşümü (implicit conversion) arka planda otomatik yapılır ama sonuç `string?` (yani null olabilir) döner.
+    - **Derleyicinin Derdi:** Derleyici, senin `!json.IsNullOrEmpty` kontrolü yaptığını görüyor ama bu kontrolün, `implicit operator` sonucunu da `null` olmaktan kurtardığını **garanti edemiyor** (Static Analysis kısıtı).
+    - "Ben null olmadığını kontrol ettim, sen rahat ol" demek için `!` (Null-forgiving operator) kullanıyoruz. Alternatif olarak `json.ToString()!` de diyebilirdik.
+
+- **Q** şunu anlayamadım: docker/docker-compose.yml dosyasında bu servisleri yazmış ve çalıştırmıştık. o neydi ve şimdi yapmamı istediğin şey ne? yani docker-compose.yml yetersiz mi?? neden her bir servis için dockerfile oluşturmamı istiyorsun?
+- **A:** 1. "Biz bunları eklememiş miydik?" Hayır, Phase 2 (Ingestion) ve Phase 3 (Processor) sırasında sadece Processor servisini Docker içine aldık.
+Ingestion Service ve Simulator'ü bugüne kadar hep bilgisayarın yerel terminalinden (dotnet run diyerek) çalıştırdık.
+kafka, redis, zookeeper gibi altyapı servislerini ise docker-compose.yml ile hazır (internet'ten indirilen) imajlar olarak çalıştırdık.
+2. "Neden her biri için Dockerfile lazım? docker-compose yetmez mi?" 
+docker-compose.yml , bir Orkestra Şefi'dir. Müzisyenlere (servislere) "Sen şurada otur, sen şu nota çal" der.
+
+Ama ortada bir sorun var:
+
+Redis, Kafka gibi servisler, "Hazır Müzisyenlerdir". Docker Hub'dan image: redis diyip indirir ve oturtursun.
+Senin Yazdığın Kodlar (Ingestion, Dashboard) ise "Eğitimsiz Çıraklardır". Docker bunları tanımaz. Onları Docker'ın anlayacağı birer "Müzisyen" (Image) haline getirmek gerekir.
+İşte Dockerfile, o çırağı alıp, giydirip, eline enstrüman verip sahneye çıkmaya hazır hale getiren **"Eğitim Kılavuzu"**dur (Build Recipe).
+Eğer Dockerfile yazmazsak, docker-compose sadece hazır imajları (Redis, Kafka) çalıştırabilir ama senin C# kodunu çalıştıramaz.
+
+Özetle:
+Kod senin bilgisayarında (bin/debug) -> dotnet run ile çalışır.
+Kod Docker'ın içinde (container) -> Dockerfile ile paketlenip, docker-compose ile çalıştırılır.
+
+- **Q**  cache aşağıdaki adımların hangisinde devreye giriyor?
+RUN dotnet restore "src/NexusSentinel.Ingestion/NexusSentinel.Ingestion.csproj"
+RUN dotnet build "NexusSentinel.Ingestion.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+- **A:** dotnet restore adımında devreye girer. Neden? Docker katmanlı çalışır. Restore komutundan önce sadece .csproj  dosyalarını kopyaladığımız için, yeni bir kütüphane eklemediğin sürece Docker bu adımı pas geçer (Cache'ten kullanır).
+dotnet build adımında ise devreye girmez (bozulur), çünkü hemen öncesinde COPY . . ile tüm kaynak kodları kopyalarız. Kodda bir harf bile değişse cache geçersiz olur ve build yeniden çalışır.
+
+- **Q** cache'in çalışması nedir tam olarak?
+senaryo 1: hiç package eklemedim/güncellemedim. ne oluyor?
+senaryo 2: bir package ekledim. ne oluyor?
+
+- **A:** Senaryo 1 (Değişiklik Yok): Docker .csproj dosyalarının "parmak izine" (hash) bakar. Değişmediğini görünce dotnet restore adımını hiç çalıştırmaz, önceki derlemeden kalan hazır katmanı (cache) şipşak yapıştırır. Çok hızlıdır.
+
+Senaryo 2 (Paket Eklendi): .csproj dosyasının parmak izi değişir. Docker "bu katman bozulmuş" der ve o satırdan itibaren cache'i çöpe atar. dotnet restore komutunu baştan çalıştırıp tüm paketleri internetten tekrar indirir. Süre uzar.
+
+- **Q** senaryo 2'de package'ların tümü mü yeniden indirilir? yoksa sadece değişmiş/yeni eklenmiş olanlar mı?
+
+- **A:** Tümü yeniden indirilir. Docker katman tabanlı bir sistemdir; .csproj dosyası üzerinde yapılan bir değişiklik olduğunda Docker o satırdaki (ve sonraki) tüm cache'i geçersiz sayar. dotnet restore komutu o "temiz" katmanda en baştan çalışır ve NuGet paket bazlı bir "sadece yenileri al" ayrımı yapamaz.
+
+- **Q** Package kontrolü hangi dosyada yapılıyor? `.csproj` mu? (done)
+- **A:** Evet, `.csproj` dosyası içindeki `<PackageReference>` etiketleri üzerinden yapılır. `dotnet restore` komutu bu dosyaya bakarak gerekli kütüphaneleri indirir.
+
+- **Q** Neden `WORKDIR "/src/src/NexusSentinel.IoTSimulator"`? `/src` yeterli değil mi? (done)
+- **A** 
+  1. `WORKDIR /src`: Konteyner içinde `/src` klasörünü oluşturur ve oraya yerleşir.
+  2. `COPY . .`: Bilgisayardaki tüm dosyaları bu klasöre kopyalar. Bilgisayarımızda kodlar zaten bir `src` klasörü içinde olduğu için, konteyner içindeki yapı `/src (workdir) / src (kopyalanan klasör)` şeklinde katmerli (nested) olur.
+  3. `WORKDIR` mutlak mı?: Eğer `/` ile başlıyorsa konteynerin kök dizinden itibaren arar. Başlamıyorsa (relative) o anki klasörün içinden devam eder.
+
+- **Q** Bir önceki soruya ek: Yani "src/NexusSentinel.IoTSimulator" da diyebilir miydik? (/ ile başlatmadan) (done)
+- **A** Evet, diyebilirdik. `WORKDIR` komutu, eğer yol `/` ile başlamıyorsa (relative path), bir önceki `WORKDIR` klasörünün içinden devam eder. Dolayısıyla `/src` içindeyken `src/NexusSentinel.IoTSimulator` yazmak bizi `/src/src/NexusSentinel.IoTSimulator` adresine götürür.
+
+
+- **Q** package kontrolü hangi dosyada yapılıyor? .csproj mu?
+- **A** Evet, .csproj dosyası içindeki <PackageReference> etiketleri üzerinden yapılır. dotnet restore komutu bu dosyaya bakarak gerekli kütüphaneleri indirir.
+
+- **Q** "gRPC portlarını dışarı açmıyoruz, sadece container ağı içinde haberleşecekler" ne demek? (done)
+- **A** Docker içinde her konteyner kendi özel IP'sine ve ismine (DNS) sahip küçük bir bilgisayar gibidir. 
+  1. **İçeriden (Container Network):** `Simulator` konteyneri, `Ingestion` konteynerine sadece ismiyle (`http://ingestion:8080`) ulaşabilir. Bunun için portun senin gerçek bilgisayarına (host machine) bağlanmasına gerek yoktur. Konteynırlar kendi aralarında "fısıldaşarak" konuşabilirler.
+  2. **Dışarıdan (Host/Dış Dünya):** Eğer sen tarayıcıdan veya Postman'den `localhost:8080` diyerek o servise ulaşmak istersen, o zaman `ports:` kısmında kapıyı dışarıya (bilgisayarına) açman (map etmen) gerekir. 
+  gRPC iletişimi sadece iki servis arasında kalacağı ve dışarıdan bir müdahale gerekmediği için gereksiz yere dışarıya kapı açmıyoruz. Bu hem güvenlik hem de port kalabalığını önlemek için iyidir.
+
+- **Q** İki konteyner da içerde 8080 kullanırsa çakışmaz mı? (done)
+- **A** Hayır. Her konteyner **ayrı bir bilgisayar** gibidir. İki farklı evde oda numarası 101 olan bir oda olması çakışma yaratmaz. Çakışma sadece **Host (senin bilgisayarın)** tarafında aynı portu (sol taraf) iki kez kullanmaya çalışırsan olur.
+
+- **Q** şunu mu demek istiyorsun?: bir host/OS/PC port'u vardır (5000, 50003 gibi unique), bir de her bir container'ın kendi içindeki X uygulamasına ulaşmak için kullandığı bir port (8000, 8080 vb) vardır.
+her bir port'un unique identifier'ı zaten vardır (dockerfile'daki section name ile belirlenir: ingestion/dashboard vb -> http://ingestion:8080 / http://dashboard:8080).
+eğer bir container içinde birden fazla app olsaydı :'ın sağındaki portun unique olmasına dikkat etmemiz gerekirdi. şu an her bir app ayrı/kendi container'ına sahip.
+
+- **A** Aynen öyle! 100% doğru anlamışsın. Özetlediğin bu mantık Docker'ın temelidir:
+Unique Host Port: Senin PC'ndeki giriş kapısı (5000, 5003) unique olmalı.
+Internal Port: Her konteynırın kendi içindeki kapı (8080) izoledir, diğerlerini etkilemez.
+Service Discovery: Konteynır isimleri (ingestion, dashboard) Docker ağındaki unique kimliklerdir.
+İzolasyon: Her uygulama kendi konteynırında olduğu için iç port çakışması imkansızdır.
+
+- **Q** ConnectionStrings__Redis=redis:6379'daki 6379 aşağıdaki tanımdaki hangi porta (sol/sağ) denk gelmektedir?
+ports: 
+      - "6379:6379"
+
+- **A** SAĞ (Sağdaki 6379) tarafa denk gelir.
+
+Kural: Konteynerler kendi aralarında konuşurken her zaman birbirlerinin İç Portuna (Sağdaki değer) bağlanırlar.
+
+Sol (6379): Senin bilgisayarından (Postman/Redis Desktop Manager vb.) bağlanman içindir.
+Sağ (6379): Diğer konteynerlerin (Dashboard, Processor) bağlanması içindir.
+Sol tarafı 9999:6379 yapsaydın bile, Dashboard konteyneri içeriden hala redis:6379 diyerek bağlanmaya devam edecekti.
+
+- **Q** docker logs -f nexus-simulator komutundaki -f nedir?
+- **A** -f parametresi, "follow" anlamına gelir. Bu komut, konteynerin loglarını canlı olarak izlemenizi sağlar. Yani, konteyner yeni bir log ürettikçe, terminal ekranında anında görünür.
+
+- **Q** docker logs -f nexus-simulator komutunu çalıştırdığımda "Unhandled exception. System.InvalidOperationException: Cannot read keys when either application does not have a console or when console input has been redirected. Try Console.Read." hatası alıyorum. Ne yapmalıyım?
+- **A** Bu hata, Docker'ın log izleme modunda (follow mode) çalışırken klavye girdisi (Console.ReadKey) okumaya çalışmasından kaynaklanır. Docker konteynerleri genellikle "headless" (konsolsüz) çalışır.
+
+Çözüm: 
+
+1. Uygulamanın sonuna Console.ReadKey() satırını eklemeyin.
+2. Veya Docker'da çalışırken -it parametresini kullanmayın (ancak bu durumda logları canlı izleyemezsiniz).
+3. En iyisi, uygulamanızı konsol uygulaması olarak değil, bir servis (Windows Service / Linux Daemon) olarak tasarlamaktır.
+
+- **Q** Bir servisin kodunda güncelleme yaptıktan sonra ne yapmalıyım? Sadece o servisi yeniden build edip çalıştırmalı mıyım? Evetse nasıl? 
+- **A** Evet, sadece o servisi yeniden build edip çalıştırmalısın. Bunun için şu komutları kullanabilirsin:
+  1. `docker-compose build <service-name>`
+  2. `docker-compose up -d <service-name>`
+
+- **Q** Önceki soruya ek: docker-compose.yml docker dizinindeyse komut nasıl olmalı?
+- **A** `docker-compose -f docker/docker-compose.yml build <service-name>`
+  `docker-compose -f docker/docker-compose.yml up -d <service-name>`
+
+- **Q** simulator (service) ve nexus-simluator (container) arasındaki fark nedir?
+- **A** simulator (service): docker-compose.yml dosyasındaki service tanımıdır.
+nexus-simluator (container): docker-compose.yml dosyasındaki service tanımına göre oluşturulan container'dır.

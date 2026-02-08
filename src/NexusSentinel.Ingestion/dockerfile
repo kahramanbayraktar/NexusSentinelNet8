@@ -1,0 +1,50 @@
+# This image contains the .NET runtime and is used as the base image for the final image.
+# We might write this after the publish stage but it is more efficient to write it before the publish stage
+# because it allows us to use the cache of the previous stages.
+# If an error occurs in the build stage, we can fix it and rebuild the image without downloading the base image again.
+# The rule of thumb is to put the most frequently changing lines at the bottom of the Dockerfile.
+# This image is downloaded from Docker Hub to the host machine.
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+# WORKDIR is a directory in the container where the commands will be executed.
+# This directory is created if it does not exist.
+WORKDIR /app
+EXPOSE 8080
+EXPOSE 8081
+
+# This image contains the .NET SDK and is used as the base image for the build stage.
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# BUILD_CONFIGURATION is a build argument that is used to specify the build configuration.
+# It is set to Release by default so we could omit it, but it is good practice to include it.
+ARG BUILD_CONFIGURATION=Release
+# /src directory is used to store the source code of the application.
+WORKDIR /src
+# We copy the csproj files to the container because they are the most frequently changing files.
+COPY ["src/NexusSentinel.Ingestion/NexusSentinel.Ingestion.csproj", "src/NexusSentinel.Ingestion/"]
+COPY ["src/NexusSentinel.Shared/NexusSentinel.Shared.csproj", "src/NexusSentinel.Shared/"]
+# We restore the dependencies of the application.
+# If any change exists in .csproj files, this stage will be re-executed, meaning the entire list of packages will be downloaded again.
+# We could write the path as "/src/src/NexusSentinel.Ingestion/NexusSentinel.Ingestion.csproj" as well.
+RUN dotnet restore "src/NexusSentinel.Ingestion/NexusSentinel.Ingestion.csproj"
+# We copy the rest of the source code to the container.
+# We don't do this before restore because it will invalidate the cache.
+# If our code change doesn't require new dependencies, we can use the cache.
+# Otherwise, we need to restore again.
+# This is why we copy the csproj files first and then the rest of the source code.
+COPY . .
+# We could write the path as "src/NexusSentinel.Ingestion/NexusSentinel.Ingestion.csproj" (without the leading /) as well.
+# If we use leading /, that means we are using the absolute path which starts from the root of the container.
+# Otherwise, we are using the relative path which starts from the current working directory.
+WORKDIR "/src/src/NexusSentinel.Ingestion"
+RUN dotnet build "NexusSentinel.Ingestion.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+FROM build AS publish
+# UseAppHost=false means we are not creating a self-contained executable
+# This is required for the application to run in a container
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "NexusSentinel.Ingestion.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+# This directory was already created in the base stage, but we need to copy the published files to it
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "NexusSentinel.Ingestion.dll"]

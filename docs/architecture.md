@@ -95,3 +95,10 @@ graph TD
 4.  **Phase 4: Critical Path:** RabbitMQ implementation and Notification Service.
 5.  **Phase 5: Visualization:** Blazor Dashboard & SignalR.
 
+- **Q** docker-compose.yml dosyasını neden docker dizini altına koyduk?
+- **A** Bu tamamen organizasyon ve temizlik tercihi.
+    Dizin Temizliği: Proje kök dizini (root) zaten .sln, .gitignore, README gibi dosyalarla kalabalık. Altyapı (Docker, Terraform, Scripts vb.) dosyalarını kendi klasöründe toplamak daha profesyonel bir yaklaşımdır.
+    Genişleme: İleride sadece tek bir Compose değil; docker-compose.prod.yml, docker-compose.test.yml gibi dosyalar eklediğinde hepsi derli toplu tek bir yerde durur.
+
+- **Q** Mimarideki zookeeper katmanı nedir ve görevi nedir?
+- **A** 

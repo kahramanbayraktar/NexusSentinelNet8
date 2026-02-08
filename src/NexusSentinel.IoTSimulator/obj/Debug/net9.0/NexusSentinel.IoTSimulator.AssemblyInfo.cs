@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NexusSentinel.IoTSimulator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+44648572445c7ad98d2e30a9242cadefb1c85c7a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+91c00d6ed26bea96bb97959f0fb6883ac72d79d4")]
 [assembly: System.Reflection.AssemblyProductAttribute("NexusSentinel.IoTSimulator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NexusSentinel.IoTSimulator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

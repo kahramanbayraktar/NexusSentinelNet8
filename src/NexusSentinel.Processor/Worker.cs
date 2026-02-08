@@ -60,7 +60,7 @@ public class Worker(ILogger<Worker> logger, IConfiguration configuration, IConne
                         // await _redisDb.StringSetAsync($"device_data:{deviceId}", json, TimeSpan.FromMinutes(5));
 
                         // Not fire-and-forget, but await to make sure the message is processed before moving to the next one.
-                        await _redisDb.StringSetAsync($"device_data:{deviceId}", json);
+                        await _redisDb.StringSetAsync($"device:{deviceId}", json);
 
                         // We say "I'm done with this message" to Kafka.
                         consumer.Commit(result);

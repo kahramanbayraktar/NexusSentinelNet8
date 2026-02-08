@@ -39,6 +39,38 @@ services:
     ports:
       - "6379:6379"
 
+  simulator:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.IoTSimulator/dockerfile
+    container_name: nexus-simulator
+    restart: always
+    environment:
+      # This is required for the simulator to connect to the ingestion service inside the docker network
+      - IngestionServerUrl=http://ingestion:8080
+    depends_on:
+      - ingestion
+
+  ingestion:
+    build:
+      # context is the path to the directory that contains the Dockerfile 
+      context: ../
+      dockerfile: src/NexusSentinel.Ingestion/Dockerfile
+    container_name: nexus-ingestion
+    # restart always means that if the container crashes, it will be restarted automatically
+    restart: always
+    environment:
+      # It is not 9092 because we are using the internal listener PLAINTEXT_INTERNAL since we are inside the docker network
+      - Kafka__BootstrapServers=kafka:29092
+    ports:
+      # No need to expose ports since ingestion is accessed from inside the docker network
+      # But if we want to access it from outside the docker network, we can expose it
+      # - "5000:8080"
+      []
+    depends_on:
+      # kafka is the name of the service in the docker-compose.yml file
+      - kafka
+
   processor:
     build:
       context: ../
@@ -52,4 +84,21 @@ services:
       - Kafka__Topic=telemetry
     depends_on:
       - kafka
+      - redis
+
+  dashboard:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.Dashboard/Dockerfile
+    container_name: nexus-dashboard
+    restart: always
+    environment:
+      # This is required for the dashboard to connect to the redis inside the docker network
+      # ConnectionStrings__Redis translates to ConnectionStrings:Redis in the appsettings.json file
+      - ConnectionStrings__Redis=redis:6379
+      # It must be changed to Production when deploying to production
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5003:8080"
+    depends_on:
       - redis

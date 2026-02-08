@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "IATavjFb6iw=",
+  "dgSpecHash": "AGnP3XoNWLg=",
   "success": true,
-  "projectFilePath": "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
+  "projectFilePath": "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\kah_r\\.nuget\\packages\\google.protobuf\\3.33.5\\google.protobuf.3.33.5.nupkg.sha512",
     "C:\\Users\\kah_r\\.nuget\\packages\\grpc.core.api\\2.76.0\\grpc.core.api.2.76.0.nupkg.sha512",

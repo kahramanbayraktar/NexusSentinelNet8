@@ -1,0 +1,121 @@
+@page "/dashboard"
+@using NexusSentinel.Dashboard.Services
+@using NexusSentinel.Shared.Protos
+@inject DeviceStateService SystemState
+@implements IDisposable
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+<PageTitle>Nexus Dashboard</PageTitle>
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h1>🔴 Live Telemetry</h1>
+            <p class="text-muted">Auto-refreshing every 2 seconds via Redis.</p>
+        </div>
+        <div class="col-auto">
+            @if (IsLoading)
+            {
+                <div class="spinner-border text-primary" role="status"></div>
+            }
+            else
+            {
+                <span class="badge bg-secondary">Last Update: @DateTime.Now.ToString("HH:mm:ss")</span>
+            }
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Error:</strong> @ErrorMessage
+        </div>
+    }
+
+    <div class="d-flex flex-wrap">
+        @foreach (var device in Devices)
+        {
+            <DeviceCard Record="device" />
+        }
+    </div>
+
+    @if (Devices.Count == 0 && !IsLoading && string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-warning">
+            No devices found in Redis. Is the Processor running?
+        </div>
+    }
+</div>
+
+@code {
+    private List<TelemetryRecord> Devices = new();
+    private PeriodicTimer? _timer;
+    private bool IsLoading = true;
+    private string? ErrorMessage;
+
+    protected override void OnInitialized()
+    {
+        // Sayfa açılır açılmaz timer başlat
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+
+        // Arka planda sürekli çalışacak döngüyü başlat (Fire-and-forget)
+        _ = RunTimerLoop();
+    }
+
+    private async Task RunTimerLoop()
+    {
+        // İlk açılışta veriyi hemen çek
+        await RefreshData();
+
+        try
+        {
+            // Timer tikledikçe çalış
+            while (await _timer!.WaitForNextTickAsync())
+            {
+                await RefreshData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Timer Loop Error: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        Console.WriteLine($"[Dashboard] Refreshing data at {DateTime.Now:HH:mm:ss}");
+        try
+        {
+            // First load: show spinner
+            if (Devices.Count == 0) IsLoading = true;
+            ErrorMessage = null;
+
+            // Timeout after 2 seconds
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+            // Wait for data or timeout
+            Devices = await SystemState.GetLatestStatesAsync().WaitAsync(cts.Token);
+        }
+        catch (TimeoutException)
+        {
+            ErrorMessage = "Redis connection timed out (2s).";
+            Console.WriteLine("RefreshData timed out.");
+        }
+        catch (TaskCanceledException)
+        {
+            ErrorMessage = "Redis connection timed out (2s).";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Data Fetch Error: {ex.Message}";
+            Console.WriteLine($"Error fetching data: {ex}");
+        }
+        finally
+        {
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

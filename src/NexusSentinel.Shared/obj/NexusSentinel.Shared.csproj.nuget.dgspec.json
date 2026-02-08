@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj": {}
+    "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj": {}
   },
   "projects": {
-    "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj": {
+    "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
+        "projectUniqueName": "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
         "projectName": "NexusSentinel.Shared",
-        "projectPath": "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
+        "projectPath": "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\NexusSentinel.Shared.csproj",
         "packagesPath": "C:\\Users\\kah_r\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\obj\\",
+        "outputPath": "C:\\Users\\kah_r\\source\\repos\\AIProjects\\NexusSentinelNet8\\src\\NexusSentinel.Shared\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\kah_r\\AppData\\Roaming\\NuGet\\NuGet.Config"

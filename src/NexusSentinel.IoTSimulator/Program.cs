@@ -3,13 +3,15 @@ using System.Threading.Tasks;
 using Grpc.Net.Client;
 using NexusSentinel.Shared.Protos;
 
-using var channel = GrpcChannel.ForAddress("http://localhost:5251");
+// We used localhost:5251 for development outside of docker
+var serverUrl = Environment.GetEnvironmentVariable("IngestionServerUrl") ?? "http://localhost:5251";
+using var channel = GrpcChannel.ForAddress(serverUrl);
 
 var client = new TelemetryService.TelemetryServiceClient(channel);
 
 Console.WriteLine("NexusSentinel IoT Simulator Starting...");
-Console.WriteLine("Press any key to start sending telemetry...");
-Console.ReadKey();
+// Console.WriteLine("Press any key to start sending telemetry...");
+// Console.ReadKey();
 
 // This will create a stream of records to send to the server
 var streamCalls = client.StreamTelemetry();
