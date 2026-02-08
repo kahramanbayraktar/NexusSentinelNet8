@@ -89,9 +89,9 @@ services:
     restart: always
     environment:
       - Kafka__BootstrapServers=kafka:29092
-      - Redis__ConnectionString=redis:6379
-      - Kafka__GroupId=processor-group-1
       - Kafka__Topic=telemetry
+      - Kafka__GroupId=processor-group-1
+      - Redis__ConnectionString=redis:6379      
     depends_on:
       - kafka
       - redis
@@ -112,3 +112,20 @@ services:
       - "5003:8080"
     depends_on:
       - redis
+
+  alert-processor:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.AlertProcessor/dockerfile
+    container_name: nexus-alert-processor
+    # restart: always
+    environment:
+      - Kafka__BootstrapServers=kafka:29092
+      - Kafka__Topic=telemetry
+      - Kafka__GroupId=alert-processor-group
+      - RabbitMQ__HOSTNAME=rabbitmq
+      - RabbitMQ__ExchangeName=alert-exchange
+      - RabbitMQ__QueueName=alert-queue
+    depends_on:
+      - kafka
+      - rabbitmq

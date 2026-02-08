@@ -53,7 +53,7 @@ public class Worker : BackgroundService
                     var json = result.Message.Value;
                     var record =JsonSerializer.Deserialize<TelemetryRecord>(json);
 
-                    if (record.Temperature > 50)
+                    if (record.Temperature > 28) // take it back to 50 when deploying to production
                     {
                         var alert = new AlertMessage
                         {

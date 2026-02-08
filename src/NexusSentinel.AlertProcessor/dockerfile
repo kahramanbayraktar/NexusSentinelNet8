@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["src/NexusSentinel.AlertProcessor/NexusSentinel.AlertProcessor.csproj", "src/NexusSentinel.AlertProcessor/"]
+COPY ["src/NexusSentinel.Shared/NexusSentinel.Shared.csproj", "src/NexusSentinel.Shared/"]
+RUN dotnet restore "src/NexusSentinel.AlertProcessor/NexusSentinel.AlertProcessor.csproj"
+COPY . .
+WORKDIR "/src/src/NexusSentinel.AlertProcessor"
+RUN dotnet build "NexusSentinel.AlertProcessor.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "NexusSentinel.AlertProcessor.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime:9.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "NexusSentinel.AlertProcessor.dll"]

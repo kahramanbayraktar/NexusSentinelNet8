@@ -473,6 +473,35 @@ Farklı diller (C#, Python, Go) arasında ortak veri modeli (Contract) oluşturm
   - Alan (AlertProcessor): Veriyi **Protobuf** (Binary) tipinde çözmeye çalıştı.
   - Sonuç: `ParseFrom` metodu, JSON karakterlerini anlamlı bir Protobuf yapısına oturtamadığı için veri bozukmuş gibi hata verdi. Dağıtık sistemlerde tüm servislerin aynı serileştirme protokolünü kullandığından emin olunmalıdır.
 
-- **Q** docker-compose -f docker/docker-compose.yml down
+- **Q** docker-compose -f docker/docker-compose.yml down (done)
+- **A** Bu komut;
+  1. `up` komutuyla oluşturulan **tüm konteynerleri durdurur ve siler**.
+  2. Oluşturulan **ağları (networks) siler**.
+  3. Ancak **Volume'leri (verileri) silmez** (bunun için `-v` eklemek gerekir). Yani veritabanındaki veriler kalır ama çalışan makineler ortadan kalkar. Sistemi temizleyip baştan başlatmak için kullanılır.
+
+- **Q** "Kodun içindeki localhost değerlerini ezmek için Docker Compose üzerinden değişkenler tanımlayacağız." Bunu biraz açalım. (done)
+- **A** 
+  - **Varsayılan:** Kodun içindeki `appsettings.json` dosyasında `BootstrapServers: "localhost:9092"` yazar. Bu, kodun çalıştığı makinede (localhost) arama yapar.
+  - **Docker Ortamı:** Docker içinde `localhost` o konteynerin kendisidir. Kafka ise `nexus-kafka` isimli başka bir konteynerdedir.
+  - **Ezme (Override):** `docker-compose.yml` içindeki `environment` bölümüne `Kafka__BootstrapServers=kafka:29092` yazdığımızda, .NET Core mimarisi bunu algılar ve `appsettings.json` içindeki değeri yok sayıp bu yeni değeri kullanır. Böylece kodun içine dokunmadan, dışarıdan (environment variable ile) ayarı değiştirmiş oluruz.
 
 
+- **Q** kafka'da hangisi daha büyük? group? topic? (done)
+- **A** **Topic** daha büyüktür (hiyerarşik olarak).
+  - **Topic:** Verinin aktığı nehir. (Örn: `telemetry` nehri).
+  - **Consumer Group:** O nehir kenarına kurulmuş bir köy. (Örn: `processor-group` köyü).
+  - Bir Topic'e birden fazla Group bağlanabilir (Aynı nehir suyunu hem köy A hem köy B kullanabilir). Yani Topic, Grupları kapsayan/besleyen ana yapıdır.
+
+  - **Q** docker-compose.yml'daki kafka:29092 ile KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092 ilişkili mi?
+
+- **Q** docker-compose.yml > alertprocessor > restart: always neden yok? crash loop diğer container'lar için de geçerli değil mi?
+
+- **Q** docker-compose -f docker/docker-compose.yml up --build -d
+docker ne zaman cache'ten alır, ne zaman yeniden oluşturur? Burada oluşturulduğu söylenen şey container mı, image mı?
+--build param kullanılmamalı!!!
+docker-compose -f docker/docker-compose.yml up -d
+
+
+- **Q** Her bir proje dizinine .dockerignore dosyası eklemnin faydaları nedir?
+
+- **Q** Bu projedeki event-driven bölümler neler? Görüyorum ki sadece RabbitMQ'lu kısım için bu terimi kullanıyorsun.
