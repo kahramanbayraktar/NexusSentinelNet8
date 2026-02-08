@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message AlertMessage {
+    string device_id = 1;
+    string alert_type = 2; // "TemperatureHigh", "VoltageDrop"
+    double current_value = 3;
+    double threshold_value = 4;
+    int64 timestamp = 5; // Unix epoch time
+    string severity = 6; // "Critical", "Warning", "Info"
+}

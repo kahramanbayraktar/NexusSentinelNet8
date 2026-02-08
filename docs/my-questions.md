@@ -386,3 +386,93 @@ Sol tarafı 9999:6379 yapsaydın bile, Dashboard konteyneri içeriden hala redis
 - **Q** simulator (service) ve nexus-simluator (container) arasındaki fark nedir?
 - **A** simulator (service): docker-compose.yml dosyasındaki service tanımıdır.
 nexus-simluator (container): docker-compose.yml dosyasındaki service tanımına göre oluşturulan container'dır.
+
+
+- **Q** Monolitik yapıda RabbitMQ kullanılamaz mı? (done)
+- **A** Kesinlikle kullanılabilir. Monolitik bir uygulamada, uzun süren işleri (örneğin e-posta gönderimi, ağır rapor oluşturma) arka plana atmak ve sistemin ana işleyişini yavaşlatmamak için RabbitMQ harika bir araçtır. En büyük avantajı, uygulama kapansa veya çökse bile mesajların RabbitMQ üzerinde güvenle beklemeye devam etmesidir (Durability).
+
+- **Q** EventBus/MediatR monolitik yapılarda mı tercih edilir? (done)
+- **A** Evet, uygulama içindeki sınıfların birbirine sıkı sıkıya bağlı (Tight Coupling) olmasını engellemek için MediatR gibi "In-Memory Event Bus" çözümleri monolitte standarttır. Bellek hızında çalışırlar ve kurulumları basittir. Ancak "In-Memory" oldukları için uygulama çökerse kuyruktaki tüm olaylar kaybolur. Bu yüzden kritik verilerin taşındığı mikroservis dünyasında RabbitMQ veya Kafka gibi "Distributed Event Bus" çözümleri tercih edilir.
+
+- **Q** Processor içinde, yani monolitik yapıda, RabbitMQ kullanmamak için verdiğin gerekçeleri tatmin edici bulmadım. (done)
+- **A** Haklısın, önceki cevabım sığ kaldı. Monolitik yapıda RabbitMQ kullanmanın asıl gerekçesi "Uygulama İçi Kuyruk" (In-Memory Queue) yerine "Dayanıklı Kuyruk" (Persistent Queue) ihtiyacıdır. 
+  1. **Hata Toleransı:** Uygulama çökerse bellekteki veri gider, RabbitMQ'daki gitmez. 
+  2. **Yük Dengeleme (Throttling):** Uygulamanın kaldıramayacağı kadar yoğun bir işlem (örn: 10.000 mail) gelirse, uygulamayı kilitler. RabbitMQ bu yükü sıraya dizer. 
+  Ancak bizim projemiz bir "Mikroservis" projesi olduğu için, RabbitMQ'yu servisler arası "iletişim hattı" (decoupling) olarak kullanmak asıl amacımız. Monolit içinde kullanmak teknik olarak mümkün ama projenin mikroservis karakterine uymadığı için "ayrı servis" yolunu önerdim.
+
+- **Q** Kafka vs RabbitMQ?
+- **A** Kafka bir Event Stream'dir; hızlıca akar gider. RabbitMQ ise Message Broker'dır. Alarmlar kritiktir. Bir alarm üretildiğinde, Dashboard kapalı olsa bile o mesajın RabbitMQ'da "beklemesi" ve Dashboard (veya SignalR Hub) açıldığında ona ulaştırılması (guaranteed delivery) gerekir. Bu yüzden alarmlar için RabbitMQ'yu seçiyoruz.
+
+- **Q** ben proto dosyalarının sadece gRPC ile ilişkili olduğunu sanıyordum. öylr değil mi? KC
+- **A** Hayır, sadece gRPC ile ilişkili değildir. Protocol Buffers (Protobuf) aslında JSON veya XML gibi bir veri serileştirme formatıdır.
+
+gRPC, bu formatı haberleşme protokolü olarak kullanır ancak Protobuf'ı gRPC olmadan da;
+
+Mesaj kuyruklarında (RabbitMQ, Kafka) veriyi çok küçük boyutlarla saklamak,
+Dosya sistemine veri kaydetmek,
+Farklı diller (C#, Python, Go) arasında ortak veri modeli (Contract) oluşturmak, için kullanabilirsin.
+Özetle: Protobuf bir dil (serileştirme), gRPC ise bu dili kullanan bir telefon (iletişim kanalıdır). Alarmları RabbitMQ üzerinden gönderirken Protobuf kullanmak performansı artırır.
+
+- **Q** telemetry.proto ve alertmessage.proto arasındaki fark nedir? Birinde service tanımlandı, diğerinde tanımlanmadı. Neden? (done)
+- **A** 
+  - **telemetry.proto (gRPC):** İçinde `service` tanımı olduğu için `Grpc.Tools` arka planda sadece mesaj sınıflarını değil, aynı zamanda **`TelemetryServiceBase` (Sunucu için)** ve **`TelemetryServiceClient` (İstemci için)** sınıflarını da üretir. Bu, iki uygulamanın gRPC protokolüyle doğrudan el sıkışmasını sağlar.
+  - **alertmessage.proto (Mesaj Katmanı):** Sadece `message` tanımlandığı için sadece `AlertMessage` isimli bir C# sınıfı (DTO/POCO) üretilir. Biz bu mesajı gRPC üzerinden değil, RabbitMQ üzerinden "ham veri" (byte array) olarak göndereceğimiz için bir "servis/kanal" tanımına ihtiyacımız yok. Sadece verinin yapısının her iki tarafta (gönderen ve alan) aynı olması yeterli.
+
+- **Q** Önceki soruya devam: Mesaj alışverişi için gRPC'de bir class ve method yok, ama RabbitMQ'ta zaten bir class ve method var diye mi ilkinde bir class ve metod tanımlı, ikincisinde değil? (done)
+- **A** Evet, tam olarak öyle. 
+  - **gRPC:** Doğrudan bir "Uzak Metot Çağrısı" (RPC) olduğu için, "Hangi metot çağrılacak?" sorusunun cevabı olan `service` tanımını protobuff dosyasında belirtmek zorundayız. `Grpc.Tools` bu tanıma bakarak `TelemetryServiceBase` ve `TelemetryServiceClient` sınıflarını üretir.
+  - **RabbitMQ:** Bizim için sadece bir "posta kutusu" (Queue) veya "mesajlaşma kanalı"dır. İçine ne koyduğumuzla (AlertMessage) ilgilenmez, sadece "al ve gönder" yapar. Bu yüzden RabbitMQ için bir `service` tanımına ihtiyacımız yoktur. Bizim "mesaj gönderme metodu"muz, `RabbitMQProducer` sınıfının içindeki `PublishAsync` metodudur.
+
+  - **Q** AlertProcessor > appsettings.json > Kafka > GroupId neden var? (done)
+- **A** Kafka'da her "Consumer" (Tüketici) bir gruba ait olmalıdır.
+  - **Scaling (Ölçekleme):** Eğer aynı `GroupId` ile 3 adet AlertProcessor çalıştırırsan, Kafka gelen verileri bu 3 servis arasında paylaştırır. Böylece sistem daha hızlı çalışır.
+  - **Tracking (Takip):** Servis durduğunda, Kafka bu grubun en son hangi mesajda kaldığını hatırlar. Servis tekrar açıldığında kaldığı yerden (offset) devam eder. Veri kaybını önler.
+
+- **Q** AlertProcessor > appsettings.json > RabbitMQ > ExchangeName neden var? (done)
+- **A** Bir benzetmeyle açıklayalım:
+  - **Direct to Queue (Kuyruğa direkt):** Bir mektubu doğrudan birinin posta kutusuna atmaktır. Eğer mektubun bir kopyasını başkasına da vermek istersen, kodu değiştirip tekrar göndermen gerekir.
+  - **Exchange (Postane Ayrıştırma Merkezi):** Sen mektubu postaneye (Exchange) verirsin. Postane, üzerindeki "Alarm" damgasına bakar ve sisteme kayıtlı tüm alıcılara (Kuyruklara) birer kopya dağıtır.
+  - **Faydası:** İleride bir "SMS Servisi" eklediğimizde, `AlertProcessor` koduna dokunmayız. Sadece RabbitMQ arayüzünden yeni bir kuyruğu bu Exchange'e bağlarız (Binding). Exchange, gelen alarmı otomatik olarak hem Dashboard'a hem de SMS servisine dağıtır. Kodun "yalnızca bir yere haber verme" kısıtından kurtuluruz.
+
+- **Q** Kafka > Topic ile RabbitMQ > Exchange aynı şey mi? (bu hala eksik. uzun uzun anlat. kısa kesme.)
+- **A** Kesinlikle hayır, görevleri ve çalışma mantıkları tamamen farklıdır:
+  - **Kafka > Topic (Log-Based Service):** Bir "diske yazılan defter" veya "arşiv" gibidir. Veri buraya geldiğinde hemen silinmez, diske kaydedilir. Tüketiciler (Consumer) o an aktif olmasa bile veri orada bekler. Hatta bir tüketici bağlandığında "bana son 2 saatin verisini baştan ver" (Replay) diyebilir. Kafka'nın ana odağı **Yüksek Hacimli Veri Saklama ve Analiz**dir.
+  - **RabbitMQ > Exchange (Message Routing Service):** Bir "akıllı trafik polisi" veya "santral" gibidir. Görevi veriyi saklamak değil, gelen verinin tipine/etiketine bakıp onu ilgili alıcılara (Kuyruklara) en hızlı ve güvenli şekilde yönlendirmektir. Eğer exchange'e bağlı bir kuyruk yoksa, mesaj o an çöpe gider (geçici/transient). RabbitMQ'nun ana odağı **Mesaj Yönlendirme ve Garantili Teslimat**tır.
+  - *Özet:* Kafka veriyi bekleten bir "havuz", RabbitMQ veriyi fırlatan bir "sapan"dır.
+
+- **Q** Ingestion ile Processor arasında neden Kafka var? (done)
+- **A** Bu microservice dünyasında "Loose Coupling" (Gevşek Bağlılık) ve "Resiliency" (Dayanıklılık) için şarttır:
+  1. **Backpressure (Geri Basınç):** IoT cihazlarından saniyede 100 bin veri geldiğini düşün. Processor bu veriyi veritabanına aynı hızda yazamazsa sistem kitlenir. Kafka burada devasa bir "Buffer" (Şok emici) görevi görür. Veriyi yığar, Processor kendi gücü yettiği hızda tüketir.
+  2. **Fan-out (Çoğaltma):** Ingestion veriyi bir kez Kafka'ya atar. Bu veriyi hem `Processor` (Redis'e yazmak için) hem `AlertProcessor` (Alarm için) hem de ilerde eklenecek bir `Archiver` (Loglamak için) birbirinden bağımsız olarak okuyabilir. Ingestion'ın bu üçünden de haberi yoktur.
+  3. **Hata Toleransı:** Processor servisini güncellerken veya servis çöktüğünde veriler kaybolmaz. Kafka veriyi saklamaya devam eder. Processor geri geldiğinde "Nerede kalmıştım?" diyerek aradaki farkı (lag) hızlıca kapatır.
+
+- **Q** RabbitMQ > QueueBindAsync() metodu ne işe yarar? (done)
+- **A** Postanedeki "Ayrıştırma Kutusu" (Exchange) ile "Alıcı Kutusu" (Queue) arasındaki fiziksel bağı kurar. Bu metodu çağırmazsan, Exchange gelen mektubu hangi kutuya atacağını bilemez ve mektup (mesaj) çöpe gider.
+
+- **Q**
+  Kafka > AutoOffsetReset.Earliest nedir? (done)
+- **A** Bir ses kaydını dinlemeye başladığında; "Eğer daha önce nerede kaldığımı hatırlamıyorsan (yeni bir GroupId ise), kasedi en başa sar ve her şeyi dinle" demektir. Eğer `Latest` dersen, sadece sen bağlandıktan sonra gelen yeni mesajları dinlersin, eskiyi kaçırırsın.
+
+- **Q**
+    private IConnection _rabbitConnection;
+    private IChannel _rabbitChannel;
+  warning CS8618: Non-nullable field '_rabbitConnection' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. (done)
+- **A** C# "Nullable Reference Types" özelliği, bir değişkenin null olabileceğini açıkça belirtmeni ister. 
+  - `private IConnection _rabbitConnection;` dersen, C# "Bunu constructor'da doldurman lazım, yoksa null kalır" diye uyarır. 
+  - Biz `SetupRabbitMQAsync` içinde (yani constructor dışında) doldurduğumuz için, tipi `IConnection?` (nullable) yaparak "Evet, bu başlangıçta null olabilir, ben bunu yönetiyorum" demiş oluyoruz. Hata değil, bir hatırlatmadır.
+
+- **Q** Ingestion ile Processor arasında neden Kafka var? (done)
+- **A** Bu modern sistemlerin "Şok Emicisi"dir (Backpressure Handling).
+  1. **Hız Farkı:** Ingestion (Giriş) saniyede 10.000 veri alabilirken, Processor (İşlemci) veritabanına yazarken yavaşlayabilir. Kafka araya girerek veriyi biriktirir, Processor nefes aldıkça veriyi çeker.
+  2. **Decoupling (Bağımsızlık):** Ingestion sadece Kafka'ya "at ve unut" der. Arkada kaç tane Processor var, Processor bozuk mu, umursamaz.
+  3. **Hata Toleransı:** Processor servisini güncellerken veya servis çöktüğünde veriler kaybolmaz. Kafka veriyi saklamaya devam eder. Processor geri geldiğinde "Nerede kalmıştım?" diyerek aradaki farkı (lag) hızlıca kapatır.
+
+- **Q** Kafka'dan veri okurken neden "input ended unexpectedly" hatası aldık? (done)
+- **A** Veri tipi uyuşmazlığı (Serialization Mismatch). 
+  - Gönderen (Ingestion): Veriyi **JSON** (Metin) tipinde gönderdi.
+  - Alan (AlertProcessor): Veriyi **Protobuf** (Binary) tipinde çözmeye çalıştı.
+  - Sonuç: `ParseFrom` metodu, JSON karakterlerini anlamlı bir Protobuf yapısına oturtamadığı için veri bozukmuş gibi hata verdi. Dağıtık sistemlerde tüm servislerin aynı serileştirme protokolünü kullandığından emin olunmalıdır.
+
+- **Q** docker-compose -f docker/docker-compose.yml down
+
+

@@ -102,3 +102,13 @@ graph TD
 
 - **Q** Mimarideki zookeeper katmanı nedir ve görevi nedir?
 - **A** 
+
+- **Q** ben proto dosyalarının sadece gRPC ile ilişkili olduğunu sanıyordum. öyle değil mi?
+- **A** Hayır, sadece gRPC ile ilişkili değildir. Protocol Buffers (Protobuf) aslında JSON veya XML gibi bir veri serileştirme formatıdır.
+
+gRPC, bu formatı haberleşme protokolü olarak kullanır ancak Protobuf'ı gRPC olmadan da;
+
+Mesaj kuyruklarında (RabbitMQ, Kafka) veriyi çok küçük boyutlarla saklamak,
+Dosya sistemine veri kaydetmek,
+Farklı diller (C#, Python, Go) arasında ortak veri modeli (Contract) oluşturmak, için kullanabilirsin.
+Özetle: Protobuf bir dil (serileştirme), gRPC ise bu dili kullanan bir telefon (iletişim kanalıdır). Alarmları RabbitMQ üzerinden gönderirken Protobuf kullanmak performansı artırır.

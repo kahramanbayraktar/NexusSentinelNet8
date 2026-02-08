@@ -39,6 +39,16 @@ services:
     ports:
       - "6379:6379"
 
+  rabbitmq:
+    image: rabbitmq:3-management # 3-management provides a management interface for rabbitmq
+    container_name: nexus-rabbitmq
+    ports:
+      - "5672:5672" # the port where the applications connect to rabbitmq
+      - "15672:15672" # the port where the management interface is accessible
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
   simulator:
     build:
       context: ../

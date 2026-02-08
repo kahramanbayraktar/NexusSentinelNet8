@@ -18,13 +18,13 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 - [x] **Data Consumption:** Consume messages from Kafka.
 - [x] **Storage:** Deserialize JSON and store latest state in Redis.
 
-## 🖥️ Phase 4: Visualization Layer (CURRENT)
-- [ ] **Dashboard Project:** Create Blazor Server project (`NexusSentinel.Dashboard`).
-- [ ] **Redis Connection:** Read live data from Redis.
-- [ ] **UI Components:** Create real-time data grid/cards.
-- [ ] **SignalR:** Push updates to UI (Optional/Advanced).
+## 🖥️ Phase 4: Visualization Layer (DONE)
+- [x] **Dashboard Project:** Create Blazor Server project (`NexusSentinel.Dashboard`).
+- [x] **Redis Connection:** Read live data from Redis.
+- [x] **UI Components:** Create real-time data grid/cards.
+- [x] **Refresh Mechanism:** Periodic polling (or SignalR) for real-time updates.
 
-## 🔔 Phase 5: Alerting & Advanced Features (FUTURE)
+## 🔔 Phase 5: Alerting & Advanced Features (CURRENT)
 - [ ] **Alert Processor:** Analyze data for thresholds (e.g., Temp > 50).
 - [ ] **Notification:** Send alerts (Email/Simulate).
 - [ ] **Historical Data:** Save time-series data to Elasticsearch or TimescaleDB.
@@ -42,3 +42,6 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 ## �📚 Documentation & Learning
 - [x] **Questions:** Maintain `docs/my-questions.md`.
 - [x] **Architecture:** Maintain `docs/architecture.md`.
+## 🚀 Future & Optimization
+- [ ] **Protobuf Migration:** Kafka hattında JSON yerine binary Protobuf kullanımına geçiş.
+- [ ] **Schema Registry:** Kafka mesaj şemalarını merkezi bir noktadan yönetme (Confluent Schema Registry).

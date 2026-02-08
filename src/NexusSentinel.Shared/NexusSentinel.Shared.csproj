@@ -19,6 +19,7 @@
   <!-- Defining gRPC Protobuf file -->
   <!-- GrpcServices="Both": Means both server and client code will be generated -->
     <Protobuf Include="Protos\telemetry.proto" GrpcServices="Both" />
+    <Protobuf Include="Protos\alertmessage.proto" />
   </ItemGroup>
 
 </Project>
