@@ -34,7 +34,22 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 - [ ] **Log Analysis:** Centralized logging with ELK Stack (or similar).
 - [ ] **Complex Queries:** Implement full-text search on device logs.
 
-## 🤖 Phase 7: AI/ML Integration (FUTURE)
+## 🏗️ Phase 7: Domain-Driven Design (DDD) (FUTURE)
+- [ ] **Core Domain:** Define aggregate roots, entities, and value objects for Telemetry and Alarms.
+- [ ] **Bounded Contexts:** Separate device management from real-time monitoring.
+- [ ] **Rich Persistence:** Move away from anemic models to behavior-rich domain logic.
+
+## 🔄 Phase 8: Event-Driven Architecture & CQRS (FUTURE)
+- [ ] **CQRS Pattern:** Separate Read (Queries) and Write (Commands) paths using MediatR.
+- [ ] **Projections:** Implement materialized views in Redis/PostgreSQL for fast reads.
+- [ ] **Outbox Pattern:** Ensure reliable event delivery between services.
+
+## ⚡ Phase 9: High Performance & Scalability (FUTURE)
+- [ ] **Heavy Traffic Simulation:** Use tools like k6 or JMeter to test system limits.
+- [ ] **Performance Tuning:** Optimize Redis connection multiplexing and EF Core queries.
+- [ ] **Load Balancing:** Scale ingestion and processor workers horizontally.
+
+## 🤖 Phase 10: AI/ML Integration (FUTURE)
 - [ ] **Anomaly Detection:** Train a model to detect abnormal patterns (e.g., sudden temp spikes).
 - [ ] **Predictive Maintenance:** Predict when a device might fail based on vibration trends.
 - [ ] **AI Service:** Create a Python/Flask service (or ML.NET) consuming Kafka data for inference.

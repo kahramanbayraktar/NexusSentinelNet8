@@ -590,3 +590,7 @@ InteractiveServerRenderMode
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 - **Q** Console.WriteLine vs logger.LogInformation
+
+
+- **Q** dotnet new blazor --interactivity Server
+  komutundaki --interactivity Server nedir?
