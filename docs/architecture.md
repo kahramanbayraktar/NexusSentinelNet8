@@ -57,7 +57,7 @@ graph TD
     
     %% Frontend
     REDIS -- "Fetch State" --> DASH[Blazor Dashboard]
-    SIGNALR -- "Real-time Updates" --> DASH
+    SIGNALR -- "Real-time Updates (not ready)" --> DASH
     DASH -- "HTTP/REST" --> API[Read/Command API]
 
     %% Styles

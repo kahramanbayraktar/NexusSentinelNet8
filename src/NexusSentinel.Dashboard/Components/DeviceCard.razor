@@ -1,18 +1,31 @@
 @using NexusSentinel.Shared.Protos
 
-<div class="card @StatusClass" style="width: 18rem; margin: 10px;">
-    <div class="card-body">
-        <h5 class="card-title">@Record.DeviceId</h5>
-        <h6 class="card-subtitle mb-2 text-muted">@DateTimeOffset.FromUnixTimeSeconds(Record.Timestamp).ToLocalTime().ToString("HH:mm:ss")</h6>
-        
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="fs-4">@Record.Temperature.ToString("0.0") °C</span>
-            <i class="bi @IconClass fs-3"></i>
+<div class="col-md-3 mb-4">
+    <div class="minimal-card h-100 d-flex flex-column justify-content-between">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h6 class="text-secondary mb-1"
+                    style="font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">@Record.DeviceId</h6>
+                <div class="d-flex align-items-center">
+                    <span class="status-indicator @StatusIndicatorClass"></span>
+                    <span class="minimal-badge">@StatusText</span>
+                </div>
+            </div>
+            <i class="bi @IconClass fs-4 text-secondary"></i>
         </div>
-        
-        <p class="card-text mt-2">
-            <small>Status: <strong>@StatusText</strong></small>
-        </p>
+
+        <div class="text-center my-3">
+            <h1 class="display-4 fw-bold mb-0" style="color: var(--text-primary);">
+                @Record.Temperature.ToString("0.0")<span class="fs-4 text-secondary">°C</span>
+            </h1>
+        </div>
+
+        <div class="mt-auto d-flex justify-content-between align-items-end">
+            <small class="text-secondary" style="font-size: 0.75rem;">
+                <i class="bi bi-clock me-1"></i>
+                @DateTimeOffset.FromUnixTimeSeconds(Record.Timestamp).ToLocalTime().ToString("HH:mm:ss")
+            </small>
+        </div>
     </div>
 </div>
 
@@ -27,17 +40,17 @@
         _ => "Normal"
     };
 
-    private string StatusClass => Record.Temperature switch
+    private string StatusIndicatorClass => Record.Temperature switch
     {
-        > 90 => "border-danger text-danger shadow",
-        > 70 => "border-warning text-warning",
-        _ => "border-success text-success"
+        > 90 => "status-critical",
+        > 70 => "status-warning",
+        _ => "status-normal"
     };
 
     private string IconClass => Record.Temperature switch
     {
-        > 90 => "bi-thermometer-high",
-        > 70 => "bi-thermometer-half",
-        _ => "bi-thermometer-low"
+        > 90 => "bi-fire",
+        > 70 => "bi-exclamation-triangle",
+        _ => "bi-cpu"
     };
 }

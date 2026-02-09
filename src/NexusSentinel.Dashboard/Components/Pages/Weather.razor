@@ -1,40 +1,63 @@
 ﻿@page "/weather"
 @attribute [StreamRendering]
 
-<PageTitle>Weather</PageTitle>
+<PageTitle>Weather | Nexus</PageTitle>
 
-<h1>Weather</h1>
+<div class="container-fluid py-4">
+    <!-- Minimal Header -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h2 class="mb-1 fw-bold tracking-tight">Weather Forecast</h2>
+            <div class="d-flex align-items-center text-secondary">
+                <span class="status-indicator status-normal me-2"></span>
+                <span style="font-size: 0.9rem;">Simulated Environment Data</span>
+            </div>
+        </div>
+    </div>
 
-<p>This component demonstrates showing data.</p>
-
-@if (forecasts == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th aria-label="Temperature in Celsius">Temp. (C)</th>
-                <th aria-label="Temperature in Farenheit">Temp. (F)</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody>
+    @if (forecasts == null)
+    {
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+            <span class="text-secondary small">Loading forecast...</span>
+        </div>
+    }
+    else
+    {
+        <div class="row">
             @foreach (var forecast in forecasts)
             {
-                <tr>
-                    <td>@forecast.Date.ToShortDateString()</td>
-                    <td>@forecast.TemperatureC</td>
-                    <td>@forecast.TemperatureF</td>
-                    <td>@forecast.Summary</td>
-                </tr>
+                <div class="col-md-2 mb-4">
+                    <div class="minimal-card h-100 text-center d-flex flex-column justify-content-center align-items-center">
+                        <small class="text-secondary mb-2"
+                            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            @forecast.Date.DayOfWeek
+                        </small>
+                        <h6 class="mb-3">@forecast.Date.ToString("MMM dd")</h6>
+
+                        <div class="my-2">
+                            @if (forecast.TemperatureC > 30)
+                            {
+                                <i class="bi bi-brightness-high fs-1 text-warning"></i>
+                            }
+                            else if (forecast.TemperatureC > 15)
+                            {
+                                <i class="bi bi-cloud-sun fs-1 text-info"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-snow fs-1 text-primary"></i>
+                            }
+                        </div>
+
+                        <h2 class="fw-bold my-2">@forecast.TemperatureC°</h2>
+                        <span class="text-secondary small">@forecast.Summary</span>
+                    </div>
+                </div>
             }
-        </tbody>
-    </table>
-}
+        </div>
+    }
+</div>
 
 @code {
     private WeatherForecast[]? forecasts;
@@ -45,13 +68,14 @@ else
         await Task.Delay(500);
 
         var startDate = DateOnly.FromDateTime(DateTime.Now);
-        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
-        forecasts = Enumerable.Range(1, 5).Select(index => new WeatherForecast
-        {
-            Date = startDate.AddDays(index),
-            TemperatureC = Random.Shared.Next(-20, 55),
-            Summary = summaries[Random.Shared.Next(summaries.Length)]
-        }).ToArray();
+        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering",
+"Scorching" };
+        forecasts = Enumerable.Range(1, 6).Select(index => new WeatherForecast
+            {
+                Date = startDate.AddDays(index),
+                TemperatureC = Random.Shared.Next(-20, 55),
+                Summary = summaries[Random.Shared.Next(summaries.Length)]
+            }).ToArray();
     }
 
     private class WeatherForecast

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NexusSentinel.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a0473f40d5bcc8666662499a41cf6f3f46a46e22")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e67ae5a4c0161733aa9f65fcb239dd93cf970c39")]
 [assembly: System.Reflection.AssemblyProductAttribute("NexusSentinel.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NexusSentinel.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

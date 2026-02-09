@@ -1,45 +1,66 @@
-@page "/dashboard"
+@page "/"
 @using NexusSentinel.Dashboard.Services
+@using NexusSentinel.Dashboard.Components
 @using NexusSentinel.Shared.Protos
 @inject DeviceStateService SystemState
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
-<PageTitle>Nexus Dashboard</PageTitle>
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col">
-            <h1>🔴 Live Telemetry</h1>
-            <p class="text-muted">Auto-refreshing every 2 seconds via Redis.</p>
+
+<PageTitle>Dashboard | Nexus</PageTitle>
+
+<div class="container-fluid py-4">
+    <!-- Minimal Header -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h2 class="mb-1 fw-bold tracking-tight">System Status</h2>
+            <div class="d-flex align-items-center text-secondary">
+                <span class="status-indicator status-normal me-2"></span>
+                <span style="font-size: 0.9rem;">Live Telemetry Stream</span>
+            </div>
         </div>
-        <div class="col-auto">
+
+        <div class="d-flex align-items-center">
             @if (IsLoading)
             {
-                <div class="spinner-border text-primary" role="status"></div>
+                <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                <span class="text-secondary small">Syncing...</span>
             }
             else
             {
-                <span class="badge bg-secondary">Last Update: @DateTime.Now.ToString("HH:mm:ss")</span>
+                <span class="minimal-badge">
+                    <i class="bi bi-arrow-repeat me-1"></i> @DateTime.Now.ToString("HH:mm:ss")
+                </span>
             }
         </div>
     </div>
+
+    <!-- Error State -->
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
-        <div class="alert alert-danger">
-            <strong>Error:</strong> @ErrorMessage
+        <div class="alert alert-danger d-flex align-items-center border-0 shadow-sm" role="alert"
+            style="background-color: rgba(239, 68, 68, 0.1); color: #f87171;">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i>
+            <div>@ErrorMessage</div>
         </div>
     }
 
-    <div class="d-flex flex-wrap">
-        @foreach (var device in Devices)
+    <!-- Device Grid -->
+    <div class="row">
+        @foreach (var device in Devices.OrderBy(d => d.DeviceId))
         {
             <DeviceCard Record="device" />
         }
     </div>
 
+    <!-- Empty State -->
     @if (Devices.Count == 0 && !IsLoading && string.IsNullOrEmpty(ErrorMessage))
     {
-        <div class="alert alert-warning">
-            No devices found in Redis. Is the Processor running?
+        <div class="text-center py-5">
+            <div class="mb-3 text-secondary" style="opacity: 0.5;">
+                <i class="bi bi-hdd-network" style="font-size: 3rem;"></i>
+            </div>
+            <h5 class="fw-normal text-secondary">No active signals detected.</h5>
+            <p class="small text-muted">Ensure the Simulator and Ingestion services are running.</p>
         </div>
     }
 </div>
