@@ -29,7 +29,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Disabled because we are using HTTP for development
 
 
 app.UseAntiforgery();

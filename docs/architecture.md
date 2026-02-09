@@ -56,8 +56,22 @@ graph TD
     NOTIFY -- "Push (WebSockets)" --> SIGNALR[SignalR Hub]
     
     %% Frontend
-    SIGNALR -- "Real-time Updates" --> DASH[Blazor Dashboard]
+    REDIS -- "Fetch State" --> DASH[Blazor Dashboard]
+    SIGNALR -- "Real-time Updates" --> DASH
     DASH -- "HTTP/REST" --> API[Read/Command API]
+
+    %% Styles
+    classDef service fill:#007bff,color:#fff,stroke:#0056b3,stroke-width:2px
+    classDef broker fill:#fd7e14,color:#fff,stroke:#d66a0a,stroke-width:2px
+    classDef db fill:#28a745,color:#fff,stroke:#1e7e34,stroke-width:2px
+    classDef ai fill:#6f42c1,color:#fff,stroke:#59359a,stroke-width:2px
+    classDef client fill:#e83e8c,color:#fff,stroke:#b21f2d,stroke-width:2px
+
+    class INGEST,PROC,NOTIFY,SIGNALR,DASH,API service
+    class KAFKA,RMQ broker
+    class REDIS,ELASTIC db
+    class AI_MOD ai
+    class IOT client
 ```
 
 ### 2.2 Data Flow Journey
@@ -94,21 +108,3 @@ graph TD
 3.  **Phase 3: Processing & Storage:** Redis integration, Docker Compose (Elastic), and core logic.
 4.  **Phase 4: Critical Path:** RabbitMQ implementation and Notification Service.
 5.  **Phase 5: Visualization:** Blazor Dashboard & SignalR.
-
-- **Q** docker-compose.yml dosyasını neden docker dizini altına koyduk?
-- **A** Bu tamamen organizasyon ve temizlik tercihi.
-    Dizin Temizliği: Proje kök dizini (root) zaten .sln, .gitignore, README gibi dosyalarla kalabalık. Altyapı (Docker, Terraform, Scripts vb.) dosyalarını kendi klasöründe toplamak daha profesyonel bir yaklaşımdır.
-    Genişleme: İleride sadece tek bir Compose değil; docker-compose.prod.yml, docker-compose.test.yml gibi dosyalar eklediğinde hepsi derli toplu tek bir yerde durur.
-
-- **Q** Mimarideki zookeeper katmanı nedir ve görevi nedir?
-- **A** 
-
-- **Q** ben proto dosyalarının sadece gRPC ile ilişkili olduğunu sanıyordum. öyle değil mi?
-- **A** Hayır, sadece gRPC ile ilişkili değildir. Protocol Buffers (Protobuf) aslında JSON veya XML gibi bir veri serileştirme formatıdır.
-
-gRPC, bu formatı haberleşme protokolü olarak kullanır ancak Protobuf'ı gRPC olmadan da;
-
-Mesaj kuyruklarında (RabbitMQ, Kafka) veriyi çok küçük boyutlarla saklamak,
-Dosya sistemine veri kaydetmek,
-Farklı diller (C#, Python, Go) arasında ortak veri modeli (Contract) oluşturmak, için kullanabilirsin.
-Özetle: Protobuf bir dil (serileştirme), gRPC ise bu dili kullanan bir telefon (iletişim kanalıdır). Alarmları RabbitMQ üzerinden gönderirken Protobuf kullanmak performansı artırır.

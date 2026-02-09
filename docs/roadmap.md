@@ -26,7 +26,7 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 
 ## 🔔 Phase 5: Alerting & Advanced Features (CURRENT)
 - [ ] **Alert Processor:** Analyze data for thresholds (e.g., Temp > 50).
-- [ ] **Notification:** Send alerts (Email/Simulate).
+- [~] **Notification:** Send alerts (Email/Simulate). *(SignalR connection to Dashboard SKIPPED/DEFERRED)*
 - [ ] **Historical Data:** Save time-series data to Elasticsearch or TimescaleDB.
 
 ## � Phase 6: Search & Analytics (Elasticsearch) (FUTURE)

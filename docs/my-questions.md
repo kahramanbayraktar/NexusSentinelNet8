@@ -513,3 +513,80 @@ docker-compose -f docker/docker-compose.yml up -d
     1.  **Telemetry Data (Kafka - Stream-Driven):** Cihazın her gönderdiği veri aslında bir "telemetri olayıdır". Ancak bu veriler çok yoğun ve sürekli olduğu için buna genelde "Streaming" diyoruz. Processor bu akışı dinleyip sistemi güncel tutar.
     2.  **Alerts (RabbitMQ - Event-Driven):** İşte asıl "Event-Driven" ruhu burada. Sıradan telemetriden farklı olarak, "Sıcaklık 50'yi geçti!" durumu **iş kurallarına dayalı kritik bir olay (event)**'dir. Bu event oluştuğunda sistem bir çığlık atar (RabbitMQ Publish) ve bu sesi duyan her servis (Dashboard, SMS, Mail) kendi işini yapar.
     - **Neden RabbitMQ için vurguladık?** Çünkü Kafka'daki telemetri genellikle "veri hamallığı"dır. RabbitMQ'daki alarm ise "anlamlı bir aksiyon tetikleyicisi"dir. Modern mimaride "Event-Driven" dendiğinde genellikle bu tip aksiyon odaklı mesajlaşmalar kastedilir.
+
+- **Q** RabbitMQ, event-driven, gRPC. Bu üçü birbiriyle nasıl ilişkilidir? (done)
+  - **A:** Bu üç teknolojiyi bir "Kargo Şirketi" gibi düşünebilirsin:
+    1.  **Protobuf (Paketleme):** Verinin en küçük ve hızlı şekilde paketlenmesidir. (Kargoyu kutuya koymak).
+    2.  **gRPC (Özel Kurye):** İki servis arasındaki hızlı ve direkt iletişim hattıdır. (Vip-Kurye ile kapıdan kapıya teslimat).
+    3.  **RabbitMQ (Dağıtım Merkezi):** Bir servisin attığı paketi (event) alıp, ihtiyacı olan onlarca servise dağıtan merkezdir.
+    4.  **Event-Driven (Sistem):** Paketin yola çıkmasıyla (Olay) tüm sistemin harekete geçmesidir.
+    - **Özetle:** Servisler **Protobuf** ile paketledikleri verileri, bazen **gRPC** ile doğrudan birbirine, bazen de **RabbitMQ** (Event-Driven) üzerinden tüm sisteme duyurarak çalışırlar.
+
+- **Q** "gRPC ile konuşan servisler, RabbitMQ aracılığıyla birbirlerine "olaylar" (events) gönderererk ..." ifadesindeki "konuşma" ile "event gönderme" aynı şey mi? (done)
+  - **A:** Hayır, aynı şey **değildir**, ancak birbiriyle **ilişkilidir**:
+    1.  **Konuşma (gRPC):** Bu, servislerin birbirini **tanıması ve komut alıp vermesi**dir. Örneğin, "Dashboard servisi, bana son 10 veriyi getir" dediğinde bu bir gRPC konuşmasıdır. Bu konuşma **senkron** çalışır (Soru sorarsın, cevap beklersin).
+    2.  **Event Gönderme (RabbitMQ):** Bu, servislerin birbirine **haber salmasıdır**. Örneğin, "Sıcaklık 50 oldu!" diye bir mesaj yayınlamaktır. Bu mesajı alan servisler kendi işlerini yaparlar. Bu işlem **asenkron** çalışır (Mesajı atarsın, cevap beklemezsin).
+    - **İlişki:** Servisler, RabbitMQ'ya mesaj atmak için bile gRPC kullanırlar. Yani **gRPC, RabbitMQ'ya bağlanma ve mesaj gönderme işini yapan teknolojidir**.
+
+- **Q** "Servisler, RabbitMQ'ya mesaj atmak için bile gRPC kullanırlar.""
+Bu ifadedeki "mesaj atmak" "event göndermek" midir? (done)
+- **A:** Evet, bu bağlamda **aynı anlama gelir**. 
+  - **Event Gönderme:** Bir olayın (Alert) diğer servislere duyurulmasıdır.
+  - **Mesaj Atmak:** Bu duyurunun RabbitMQ üzerinden yapılmasıdır.
+  - Teknik olarak "Event" (Olay) RabbitMQ'ya "Message" (Mesaj) olarak gönderilir. Dolayısıyla "Event Göndermek" ile "Mesaj Atmak" eş anlamlıdır.
+
+- **Q** "SignalR Hub'larını barındırmak (host etmek) için bir Web sunucusuna (Kestrel) ihtiyacımız var." Neden? (done)
+  - **A:** SignalR, tarayıcılarla (Browser) gerçek zamanlı iletişim kuran bir **Web teknolojisidir**. Tıpkı bir web sitesinin çalışması gibi, SignalR'ın da çalışabilmesi için bir **HTTP sunucusuna** ihtiyacı vardır. Kestrel, .NET Core'un kendi içinde gelen hafif ve hızlı web sunucusudur. SignalR Hub'ları bu sunucu üzerinden dış dünyaya açılır ve tarayıcılardan gelen WebSocket bağlantılarını yönetir.
+
+- **Q** "Bu servis hem bir RabbitMQ Consumer (kapalı devre dinleyici) olacak, hem de dışarıya WebSocket kapılarını açacak." Bu ne demek? (done)
+  - **A:** Bu ifade, servisin **iki yönlü bir görev** üstlendiğini anlatıyor:
+      1.  **İçeride (RabbitMQ - Kapalı Devre):** Servis, RabbitMQ kuyruğunu dinleyerek arka planda sürekli gelen "Alert" (Uyarı) mesajlarını yakalar. Bu işlem sadece kendi iç sisteminde gerçekleşir, dışarıdan kimse bu mesaja erişemez. Bu yüzden "kapalı devre dinleyici" denir.
+      2.  **Dışarıda (WebSocket - Açık Kapı):** Servis, aynı zamanda bir SignalR Hub'ı barındırır. Bu, servisin dış dünyaya (tarayıcılara, mobil uygulamalara) "kapılarını açtığı" anlamına gelir. Tarayıcılar bu kapıdan bağlanarak anlık olarak "Sıcaklık 50 derece!" gibi uyarıları anında alır.
+  - **Özetle:** Servis, içerideki tehlikeyi (Alert) dinler ve bu tehlikeyi dışarıdaki kullanıcılara (WebSocket) anında bildirir.
+
+- **Q** docker-compose.yml dosyasını neden docker dizini altına koyduk?
+- **A** Bu tamamen organizasyon ve temizlik tercihi.
+    Dizin Temizliği: Proje kök dizini (root) zaten .sln, .gitignore, README gibi dosyalarla kalabalık. Altyapı (Docker, Terraform, Scripts vb.) dosyalarını kendi klasöründe toplamak daha profesyonel bir yaklaşımdır.
+    Genişleme: İleride sadece tek bir Compose değil; docker-compose.prod.yml, docker-compose.test.yml gibi dosyalar eklediğinde hepsi derli toplu tek bir yerde durur.
+
+- **Q** Mimarideki zookeeper katmanı nedir ve görevi nedir? (done)
+  - **A:** Zookeeper, Kafka'nın **"Koordinatörü"**dür.
+    1.  **Health Check:** Hangi Kafka sunucusunun (broker) hayatta olduğunu takip eder.
+    2.  **Leader Election:** Bir sunucu çökerse, verileri yönetme görevini kime vereceğini belirler.
+    3.  **Metadata Management:** Topic'lerin ve partition'ların bilgilerini saklar.
+    **Kısacası:** Zookeeper olmadan Kafka, bir orkestra şefi olmayan orkestra gibi dağılır. (Not: Modern Kafka sürümlerinde bu görev Kafka'nın içine gömülmeye başlandı ama hala yaygın kullanılıyor).
+
+- **Q** ben proto dosyalarının sadece gRPC ile ilişkili olduğunu sanıyordum. öyle değil mi?
+- **A** Hayır, sadece gRPC ile ilişkili değildir. Protocol Buffers (Protobuf) aslında JSON veya XML gibi bir veri serileştirme formatıdır.
+
+  gRPC, bu formatı haberleşme protokolü olarak kullanır ancak Protobuf'ı gRPC olmadan da;
+
+  Mesaj kuyruklarında (RabbitMQ, Kafka) veriyi çok küçük boyutlarla saklamak,
+  Dosya sistemine veri kaydetmek,
+  Farklı diller (C#, Python, Go) arasında ortak veri modeli (Contract) oluşturmak, için kullanabilirsin.
+  Özetle: Protobuf bir dil (serileştirme), gRPC ise bu dili kullanan bir telefon (iletişim kanalıdır). Alarmları RabbitMQ üzerinden gönderirken Protobuf kullanmak performansı artırır.
+
+- **Q** CancellationToken nedir ve ne işe yarar? Aşağıdaki örnekte stoppingToken nerede/ne zaman set edilerek akışın durması sağlanabilir? (done)
+  - **A:** CancellationToken, bir işlemin "iptal edilebilir" olduğunu belirten bir bayraktır. 
+    1. **Neden var?** Uzun süren bir işlem (örn: veri beklemek) sırasında uygulama kapanırsa, o işlemin sonsuza kadar thread'i meşgul etmesini engellemek için kullanılır.
+    2. **Kim Set Eder?** ASP.NET Core veya Worker Service altyapısı, uygulama durdurulduğunda (örn: Docker `stop` veya Ctrl+C) bu token'ı otomatik olarak "İptal Edildi" (Cancelled) durumuna getirir.
+    3. **Akış Nasıl Durur?** `await ...Async(stoppingToken)` dediğinde, metod bu token'ı kontrol eder. Eğer token iptal edildiyse, metod o satırda durur ve güvenli bir şekilde fonksiyondan çıkar.
+
+- **Q** İkisi arasındaki fark nedir?
+_hubConnection!.DisposeAsync();
+_hubConnection?.DisposeAsync(); (done)
+  - **A:** 
+    1. **`?.` (Null-conditional):** "Eğer nesne null değilse metodunu çağır, null ise hiçbir şey yapma." Güvenlidir, hata fırlatmaz.
+    2. **`!.` (Null-forgiving):** "Bu nesnenin null olmadığını garanti ediyorum, derleyici sen sus ve çalıştır!" demektir. 
+    - **Tehlike:** Eğer nesne o an gerçekten `null` ise (örn: bağlantı hiç kurulmadıysa), `!.` kullanımı uygulamayı **NullReferenceException** ile patlatır. Blazor sayfalarında her zaman `?.` kullanmak best practice'dir.
+ (done)
+  - **A:** 
+    1. **`?.` (Null-conditional):** "Eğer nesne null değilse metodunu çağır, null ise hiçbir şey yapma." Güvenlidir, hata fırlatmaz.
+    2. **`!.` (Null-forgiving):** "Bu nesnenin null olmadığını garanti ediyorum, derleyici sen sus ve çalıştır!" demektir. 
+    - **Tehlike:** Eğer nesne o an gerçekten `null` ise (örn: bağlantı hiç kurulmadıysa), `!.` kullanımı uygulamayı **NullReferenceException** ile patlatır. Blazor sayfalarında her zaman `?.` kullanmak best practice'dir.
+
+- **Q** Bunlar nedir?
+InteractiveServerRenderMode
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+- **Q** Console.WriteLine vs logger.LogInformation

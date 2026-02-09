@@ -31,3 +31,16 @@ The Blazor Dashboard UI would initialize with a "Loading..." spinner but would n
 - **Always Verify Interactivity:** In .NET 8+, if a component needs a timer or event handlers (clicks, etc. to work after initial load), ensure `@rendermode` is set.
 - **Async-First mentality:** Never use blocking `.ToArray()` or `.ToList()` on I/O-bound resources (like Redis `SCAN`) inside a UI application context without offloading them.
 - **Feedback is Better than Silence:** Using `try-catch` blocks that update an `ErrorMessage` property on the UI is far superior to letting an app hang silently.
+
+## 2. Notification Service SignalR Connection Failure (SKIPPED)
+
+### **Problem Symptom**
+We attempted to implement real-time alerts on the Dashboard by connecting it to the `NotificationHub` via SignalR. However, we faced persistent issues establishing a stable connection between the Blazor Server app (Dashboard) and the Notification Service running in a separate container/process.
+
+### **Root Causes & Unknowns**
+-   **Potential Docker Networking:** The Dashboard could not consistently reach the Notification Service's SignalR hub endpoint.
+-   **Configuration Complexity:** Managing multiple SignalR hubs (one for internal updates, one for external notifications) added complexity.
+
+### **Action Taken**
+-   **Decision:** We decided to **SKIP** the real-time alert notification feature for now to prevent blocking overall project progress.
+-   **Plan:** We will revisit this later, possibly exploring alternative communication methods (e.g., polling Redis for alerts, or using a different event bus strategy) or dedicating more time to debug the specific SignalR networking issue.
