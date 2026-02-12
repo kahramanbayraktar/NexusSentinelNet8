@@ -15,11 +15,13 @@ public class Worker : BackgroundService
     private readonly IConfiguration _config;
     private IConnection? _rabbitConnection;
     private IChannel? _rabbitChannel;
+    private readonly double _thresholdValue;
 
     public Worker(ILogger<Worker> logger, IConfiguration config)
     {
         _logger = logger;
         _config = config;
+        _thresholdValue = Convert.ToDouble(_config["AppLimits:ThresholdValue"]);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -51,16 +53,16 @@ public class Worker : BackgroundService
                 if (result != null)
                 {
                     var json = result.Message.Value;
-                    var record =JsonSerializer.Deserialize<TelemetryRecord>(json);
+                    var record = JsonSerializer.Deserialize<TelemetryRecord>(json);
 
-                    if (record.Temperature > 28) // take it back to 50 when deploying to production
+                    if (record.Temperature > _thresholdValue)
                     {
                         var alert = new AlertMessage
                         {
                             DeviceId = record.DeviceId,
                             AlertType = "HighTemperature",
                             CurrentValue = record.Temperature,
-                            ThresholdValue = 50,
+                            ThresholdValue = _thresholdValue,
                             Severity = "Critical",
                             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                         };

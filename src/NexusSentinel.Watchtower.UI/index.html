@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Sentinel | Watchtower UI</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- SignalR CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">NEXUS<span>SENTINEL</span></div>
+            <div class="status-badge" id="conn-status">Disconnected</div>
+        </header>
+
+        <main>
+            <section class="monitor-header">
+                <h1>Live Alert Monitor</h1>
+                <p>Real-time surveillance from Nexus Network</p>
+            </section>
+
+            <div id="alert-list" class="alert-grid">
+                <!-- Alarmlar buraya dinamik olarak gelecek -->
+                <div class="empty-state">Waiting for incoming alerts...</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
