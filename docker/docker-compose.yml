@@ -129,3 +129,34 @@ services:
     depends_on:
       - kafka
       - rabbitmq
+
+  notification:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.Notification/Dockerfile
+    container_name: nexus-notification
+    restart: always
+    environment:
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__ExchangeName=alert-exchange
+      - RabbitMQ__QueueName=alert-queue
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5072:8080"
+    depends_on:
+      - rabbitmq
+
+  watchtower:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.Watchtower/Dockerfile
+    container_name: nexus-watchtower
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - NotificationUrl=http://notification:8080/alertHub
+    ports:
+      - "5289:8080"
+    depends_on:
+      - notification

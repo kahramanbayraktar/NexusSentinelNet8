@@ -2,7 +2,17 @@ using System.Runtime.InteropServices;
 using NexusSentinel.Notification.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSignalR();
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
+
+builder.Services.AddSignalR(e =>
+{
+    e.EnableDetailedErrors = true;
+    e.MaximumReceiveMessageSize = 102400000;
+});
 builder.Services.AddHostedService<NotificationWorker>();
 
 builder.Services.AddCors(options =>{
@@ -10,8 +20,7 @@ builder.Services.AddCors(options =>{
     {
         builder.SetIsOriginAllowed(_ => true) // allow all origins for development only
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowAnyMethod();
     });
 });
 

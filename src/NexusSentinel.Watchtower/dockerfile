@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 8080
+EXPOSE 8081
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+COPY ["src/NexusSentinel.Watchtower/NexusSentinel.Watchtower.csproj", "src/NexusSentinel.Watchtower/"]
+COPY ["src/NexusSentinel.Shared/NexusSentinel.Shared.csproj", "src/NexusSentinel.Shared/"]
+RUN dotnet restore "src/NexusSentinel.Watchtower/NexusSentinel.Watchtower.csproj"
+COPY . .
+WORKDIR "/src/src/NexusSentinel.Watchtower"
+RUN dotnet build "NexusSentinel.Watchtower.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "NexusSentinel.Watchtower.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "NexusSentinel.Watchtower.dll"]

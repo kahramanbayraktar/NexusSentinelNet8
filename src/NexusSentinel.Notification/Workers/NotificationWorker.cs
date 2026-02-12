@@ -6,9 +6,14 @@ using Microsoft.AspNetCore.SignalR;
 using NexusSentinel.Notification.Hubs;
 using System.Threading;
 
-public class NotificationWorker(ILogger<NotificationWorker> logger, IConfiguration config, IHubContext<AlertHub> hubContext) : BackgroundService
+public class NotificationWorker(
+    ILogger<NotificationWorker> logger, 
+    IConfiguration config,
+    IHubContext<AlertHub> hubContext) : BackgroundService
 {
     // TODO: I need to understand this code better.
+    // Receives alerts from RabbitMQ and forwards them to SignalR.
+    // That means, it is both a RabbitMQ consumer and a SignalR server.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("NotificationWorker started.");

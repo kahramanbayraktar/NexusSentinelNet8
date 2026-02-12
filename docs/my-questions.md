@@ -594,3 +594,85 @@ InteractiveServerRenderMode
 
 - **Q** dotnet new blazor --interactivity Server
   komutundaki --interactivity Server nedir?
+
+
+- **Q** Diyagramda SignalR Hub olarak gösterdiğimiz birim nerede bulunuyor (where does it reside)?
+- **A:** SignalR Hub, NexusSentinel.Notification servisi içerisinde (reside) bulunuyor.
+
+    Teknik olarak Notification servisi hem bir RabbitMQ tüketicisi (Consumer) hem de bir SignalR sunucusu (Server) olarak görev yapar. 
+    Program.cs
+    dosyasındaki app.MapHub<AlertHub>("/alertHub") satırı, bu hub'ın o servis üzerinden yayınlandığını gösterir.
+
+    Özetle: Birim olarak Notification Service'in bir parçasıdır.
+
+- **Q** Diyagramdaki Push (WebSockets) ne anlama geliyor? SignalR sadece WebSockets ile mi çalışır?
+
+- **A:** 
+Push (WebSockets): Sunucunun, istemcinin (browser/dashboard) bir istek yapmasını beklemeden, veri oluşur oluşmaz onu istemciye "ittirmesi" (send) anlamına gelir. Normal HTTP'deki "istemci sorar, sunucu cevaplar" modelinin tam tersidir.
+
+SignalR sadece WebSockets ile mi çalışır? Hayır. SignalR bir soyutlama (abstraction) katmanıdır. En iyi performans için WebSockets'i dener, ancak ortam desteklemiyorsa otomatik olarak sırasıyla şu yöntemlere düşer (fallback):
+
+WebSockets: Gerçek çift yönlü, kalıcı bağlantı.
+Server-Sent Events (SSE): Sunucunun tek taraflı veri gönderebildiği kalıcı bağlantı.
+Long Polling: Bağlantı yokmuş gibi davranıp sürekli istek yaparak veri bekleme (en ilkel yöntem).
+Özetle: SignalR akıllıdır; en iyi yöntemi o anki şartlara göre kendisi seçer. "Push (WebSockets)" ifadesi diyagramda en ideal yolu temsil eder.
+
+- **Q** "Program.cs dosyasında hem AllowCredentials() deyip hem de her kaynağa (_ => true) izin veremezsin." Bunu biraz anlat.
+
+
+- **Q** tüm dotnet process'lerini kill etme komutu nedir?
+- **A:** taskkill /F /IM dotnet.exe /T
+
+- **Q** docker-compose kullanarak bir servisi ayağa kaldırma komutu nedir?
+- **A:** docker-compose up --build notification
+docker-compose up --build -d notification (buradaki -d parametresi background'da çalışmasını sağlar. aksi durumda terminal'de çalışır. bu da şu demek oluyor: terminal'de "Ctrl+C" ile durdurabilirsin. "Ctrl+C" ile durduramazsan, "docker-compose down" komutu ile durdurabilirsin.)
+eğer docker-compose.yml başka bir dizindeyse -f parametresi ile belirtmeniz gerekiyor.
+docker-compose up --build -d notification -f docker/docker-compose.yml
+
+
+- **Q** docker compose -f docker/docker-compose.yml up --build -d notification
+komutunu açıkla.
+- **A:** [KİM] [HANGİ DOSYA] [NE YAPACAK] [NASIL?] [NEYE?]
+  docker-compose: (Kim?) Komutu çalıştıran araç.
+  -f docker/docker-compose.yml: (Hangi Dosya?) Önce "hangi kurallar geçerli?" onu söylüyoruz. (Mutfaktaki yemek tarifi kitabı gibi).
+  up: (Ne Yapacak?) Eylemimiz. "Ayağa kaldır/Çalıştır" demek.
+  --build: (Nasıl yapılacağını detaylandırır) "Dosyalarda değişiklik yaptım, imajı yeniden pişir/oluştur" demek.
+  -d: (Nasıl?) "Disconnected/Detached" yani arka planda çalıştır, benim terminalimi serbest bırak.
+  notification: (Neye?) "Hepsini değil, sadece bu parçayı çalıştır."
+
+
+- **Q** dockerfile ve docker-compose.yml arasındaki ilişki ve farklar neler?
+- **A:** Bu iki dosya arasındaki ilişkiyi "Yemek Tarifi" vs. "Akşam Yemeği Organizasyonu" benzetmesiyle çok kolay anlayabilirsin:
+
+  1. Dockerfile (Yemek Tarifi 🍲)
+  Amacı: Tek bir imaj (image) oluşturmaktır.
+  İçeriği: "Hangi işletim sistemini kullanayım? Hangi SDK'yı kurayım? Kodları nereye kopyalayayım? Uygulamayı nasıl başlatayım?" sorularının cevabıdır.
+  Odak Noktası: Uygulamanın nasıl inşa edileceği (Build süreci).
+  Örnek: NexusSentinel.Notification klasöründeki Dockerfile, sadece o servisin nasıl paketleneceğini bilir.
+  2. docker-compose.yml (Ziyafet Organizasyonu 🍽️)
+  Amacı: Birden fazla konteyneri aynı anda yönetmek ve birbirine bağlamaktır.
+  İçeriği: "Notification servisi hangi porttan çalışacak? Veritabanına nasıl bağlanacak? Önce hangi servis açılmalı?" gibi koordinasyon bilgileridir.
+  Odak Noktası: Uygulamaların nasıl çalıştırılacağı (Runtime süreci).
+  Örnek: Senin 
+  docker/docker-compose.yml
+  dosyan; Kafka, Redis, Ingestion ve Notification'ı bir araya getirip bir orkestra gibi yönetir.
+  Aralarındaki İlişki:
+  docker-compose.yml
+  , içindeki build: kısmına bakarak gider ilgili Dockerfile'ı bulur ve onu çalıştırır.
+
+  yaml
+  # docker-compose.yml içinden bir kesit
+  notification:
+    build:
+      context: ../
+      dockerfile: src/NexusSentinel.Notification/Dockerfile # <-- Dockerfile'a burada işaret eder
+  Temel Farklar Tablosu:
+  Özellik	Dockerfile	docker-compose.yml
+  Kapsam	Sadece 1 bileşen (servis)	Tüm sistem (çoklu servisler)
+  Komut	docker build	docker-compose up
+  İşlev	İmajı "paketler"	Paketleri "çalıştırır ve bağlar"
+  Ağ/Port	Port açabilir ama ağ kuramaz	Servisleri aynı ağda (network) konuşturur
+  Özetle:
+
+  Dockerfile ile her bir servisin "kutusu" hazırlanır.
+  docker-compose ile bu kutular raflara dizilir, elektrikleri (portlar) bağlanır ve birbirleriyle konuşmaları (network) sağlanır.

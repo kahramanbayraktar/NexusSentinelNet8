@@ -1,0 +1,56 @@
+@using NexusSentinel.Shared.Protos
+
+<div class="col-md-3 mb-4">
+    <div class="minimal-card h-100 d-flex flex-column justify-content-between">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h6 class="text-secondary mb-1"
+                    style="font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">@Record.DeviceId</h6>
+                <div class="d-flex align-items-center">
+                    <span class="status-indicator @StatusIndicatorClass"></span>
+                    <span class="minimal-badge">@StatusText</span>
+                </div>
+            </div>
+            <i class="bi @IconClass fs-4 text-secondary"></i>
+        </div>
+
+        <div class="text-center my-3">
+            <h1 class="display-4 fw-bold mb-0" style="color: var(--text-primary);">
+                @Record.Temperature.ToString("0.0")<span class="fs-4 text-secondary">°C</span>
+            </h1>
+        </div>
+
+        <div class="mt-auto d-flex justify-content-between align-items-end">
+            <small class="text-secondary" style="font-size: 0.75rem;">
+                <i class="bi bi-clock me-1"></i>
+                @DateTimeOffset.FromUnixTimeSeconds(Record.Timestamp).ToLocalTime().ToString("HH:mm:ss")
+            </small>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public required TelemetryRecord Record { get; set; }
+
+    private string StatusText => Record.Temperature switch
+    {
+        > 90 => "Critical",
+        > 70 => "Warning",
+        _ => "Normal"
+    };
+
+    private string StatusIndicatorClass => Record.Temperature switch
+    {
+        > 90 => "status-critical",
+        > 70 => "status-warning",
+        _ => "status-normal"
+    };
+
+    private string IconClass => Record.Temperature switch
+    {
+        > 90 => "bi-fire",
+        > 70 => "bi-exclamation-triangle",
+        _ => "bi-cpu"
+    };
+}

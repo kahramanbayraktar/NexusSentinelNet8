@@ -28,7 +28,6 @@ The architecture is designed to be language-agnostic. We define contracts first.
 ---
 
 ## 2. High-Level Architecture
-## 2. High-Level Architecture
 
 ### 2.1 System Diagram
 
@@ -42,14 +41,15 @@ graph TD
     
     %% Processing Layer
     KAFKA -- "Consume (Group: processing)" --> PROC[Processor Service]
+    KAFKA -- "Consume (Group: alerting)" --> ALERT_PROC[Alert Processor]
     PROC -- "Queries/Analyses (AI)" --> AI_MOD[AI/Logic Module]
     
     %% Data Persistence & Caching
     PROC -- "Cache State" --> REDIS[(Redis)]
     PROC -- "Index Logs" --> ELASTIC[(Elasticsearch)]
     
-    %% alerting Path (Critical)
-    PROC -- "Publish (Alert)" --> RMQ{RabbitMQ Exchange: alerts}
+    %% Alerting Path (Critical)
+    ALERT_PROC -- "Publish (Alert)" --> RMQ{RabbitMQ Exchange: alerts}
     
     %% Notification Layer
     RMQ -- "Consume (Queue: notify)" --> NOTIFY[Notification Service]
@@ -57,7 +57,7 @@ graph TD
     
     %% Frontend
     REDIS -- "Fetch State" --> DASH[Blazor Dashboard]
-    SIGNALR -- "Real-time Updates (not ready)" --> DASH
+    SIGNALR -- "Real-time Updates" --> WATCH[Watchtower / Dashboard]
     DASH -- "HTTP/REST" --> API[Read/Command API]
 
     %% Styles
@@ -67,7 +67,7 @@ graph TD
     classDef ai fill:#6f42c1,color:#fff,stroke:#59359a,stroke-width:2px
     classDef client fill:#e83e8c,color:#fff,stroke:#b21f2d,stroke-width:2px
 
-    class INGEST,PROC,NOTIFY,SIGNALR,DASH,API service
+    class INGEST,PROC,ALERT_PROC,NOTIFY,SIGNALR,DASH,WATCH,API service
     class KAFKA,RMQ broker
     class REDIS,ELASTIC db
     class AI_MOD ai
@@ -92,7 +92,7 @@ graph TD
     *   **Cold Data:** Archives logs to **Elasticsearch** for history/analytics.
 
 4.  **Critical Alerts (The Fast Lane):**
-    *   If the Processor detects a critical anomoly, it publishes an event to **RabbitMQ**.
+    *   **Alert Processor** subscribes to Kafka. If it detects a critical anomaly, it publishes an event to **RabbitMQ**.
     *   *Why RabbitMQ here?* We need "Routing" (e.g., Route 'Critical' to SMS, 'Warning' to Dashboard only) and reliability acknowledgements.
 
 5.  **Real-Time Push (The Visibility):**
@@ -108,3 +108,5 @@ graph TD
 3.  **Phase 3: Processing & Storage:** Redis integration, Docker Compose (Elastic), and core logic.
 4.  **Phase 4: Critical Path:** RabbitMQ implementation and Notification Service.
 5.  **Phase 5: Visualization:** Blazor Dashboard & SignalR.
+
+ADDITON: Use Kubernetes for container orchestration and horizontal scaling.

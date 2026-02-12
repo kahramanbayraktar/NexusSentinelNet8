@@ -44,3 +44,22 @@ We attempted to implement real-time alerts on the Dashboard by connecting it to 
 ### **Action Taken**
 -   **Decision:** We decided to **SKIP** the real-time alert notification feature for now to prevent blocking overall project progress.
 -   **Plan:** We will revisit this later, possibly exploring alternative communication methods (e.g., polling Redis for alerts, or using a different event bus strategy) or dedicating more time to debug the specific SignalR networking issue.
+
+## 3. NETSDK1152 - Duplicate Publish Output Files (Project Reference Conflict)
+
+### **Problem Symptom**
+Docker build for the Watchtower service failed with the following error:
+`error NETSDK1152: Found multiple publish output files with the same relative path: appsettings.json, appsettings.Development.json.`
+
+### **Root Cause**
+- **The Mistake:** The `NexusSentinel.Watchtower.csproj` file contained an unnecessary `<ProjectReference>` to `NexusSentinel.Notification.csproj`.
+- **The Mechanics:** Both projects are independent ASP.NET Core applications and both have their own `appsettings.json` files. When `dotnet publish` was run for Watchtower, it recursively attempted to include the output of all referenced projects. Since both projects have files with the exact same name and relative path, the build engine encountered a collision.
+- **Source of Error:** This reference was likely added incorrectly during an AI-assisted code generation or autocomplete session where a shared dependency was needed, but the AI suggested the wrong project.
+
+### **Solution Implemented**
+- **Reference Cleanup:** Removed the reference to the `Notification` project and replaced it with a reference to the `NexusSentinel.Shared` project, which was the actual intended dependency.
+- **Result:** The build succeeded as there were no longer conflicting configuration files in the publish output.
+
+### **Key Lessons Learned**
+- **Audit Project References:** Be extremely careful with Project References between different service projects in a microservice architecture. Services should typically only share "Shared" or "Domain" libraries, not reference each other directly.
+- **AI Verification:** Always double-check AI-generated `.csproj` entries or boilerplate code, as it might introduce broad dependencies that cause subtle build-time conflicts.

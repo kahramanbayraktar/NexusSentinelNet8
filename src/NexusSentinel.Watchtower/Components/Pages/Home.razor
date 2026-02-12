@@ -1,7 +1,61 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@inject IConfiguration config;
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Watchtower</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container">
+    <h3>Alert Monitor</h3>
 
-Welcome to your new app.
+    <hr />
+
+    <ul id="messagesList">
+        @foreach (var message in messages)
+        {
+            <li>@message</li>
+        }
+    </ul>
+</div>
+
+@code {
+    // DTO that matches the anonymous object sent by NotificationWorker
+    private class AlertDto
+    {
+        public string deviceId { get; set; } = string.Empty;
+        public string alertType { get; set; } = string.Empty;
+        public double currentValue { get; set; }
+        public double thresholdValue { get; set; }
+        public int severity { get; set; }
+        public string timestamp { get; set; } = string.Empty;
+    }
+
+    private HubConnection? hubConnection;
+    private List<string> messages = new List<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl(config["NotificationUrl"])
+        .Build();
+
+        hubConnection.On<AlertDto>("ReceiveAlert", (alert) =>
+        {
+            var encodedMsg = $"{alert.deviceId}: {alert.alertType} ({alert.currentValue})";
+            messages.Add(encodedMsg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

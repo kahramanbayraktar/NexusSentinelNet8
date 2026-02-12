@@ -60,3 +60,5 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 ## 🚀 Future & Optimization
 - [ ] **Protobuf Migration:** Kafka hattında JSON yerine binary Protobuf kullanımına geçiş.
 - [ ] **Schema Registry:** Kafka mesaj şemalarını merkezi bir noktadan yönetme (Confluent Schema Registry).
+
+ADDITON: Use Kubernetes for container orchestration and horizontal scaling.

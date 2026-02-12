@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\NexusSentinel.Shared\NexusSentinel.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
