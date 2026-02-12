@@ -618,7 +618,7 @@ Long Polling: Bağlantı yokmuş gibi davranıp sürekli istek yaparak veri bekl
 Özetle: SignalR akıllıdır; en iyi yöntemi o anki şartlara göre kendisi seçer. "Push (WebSockets)" ifadesi diyagramda en ideal yolu temsil eder.
 
 - **Q** "Program.cs dosyasında hem AllowCredentials() deyip hem de her kaynağa (_ => true) izin veremezsin." Bunu biraz anlat.
-
+- **A:** Güvenlik kuralıdır: Tarayıcılar, "özel kimlik bilgilerini (cookies/credentials) kabul ediyorsan, kaynağın kim olduğunu net söylemelisin, 'herkes (*)' diyemezsin" der. `SetIsOriginAllowed(_ => true)` kullanarak her adresi tek tek onaylamış gibi davranıp bu kuralı esnetiyoruz.
 
 - **Q** tüm dotnet process'lerini kill etme komutu nedir?
 - **A:** taskkill /F /IM dotnet.exe /T
@@ -676,3 +676,35 @@ komutunu açıkla.
 
   Dockerfile ile her bir servisin "kutusu" hazırlanır.
   docker-compose ile bu kutular raflara dizilir, elektrikleri (portlar) bağlanır ve birbirleriyle konuşmaları (network) sağlanır.
+
+- **Q:** CDN (Content Delivery Network) üzerinden kütüphane eklemek ne demek?
+- **A:** Bir kütüphaneyi bilgisayarına indirip kurmak yerine, doğrudan internetteki güvenilir bir adresten (URL) çağırmaktır. 
+    - *Avantajı:* Hiçbir kurulum (npm vb.) gerektirmez, sadece bir `<script src="...">` etiketiyle her şey hazır olur.
+
+- **Q:** `ports: - "5072:8080"` tam olarak ne anlama geliyor? 
+- **A:** **DIŞ_KAPI : İÇ_KAPI** eşlemesidir.
+    - **5072 (Dış):** Senin tarayıcıdan (`localhost:5072`) ulaşacağın port.
+    - **8080 (İç):** Uygulamanın konteyner içinde gerçekten çalıştığı port. Docker gelen isteği 5072'den yakalar ve içerideki 8080'e paslar.
+
+- **Q:** SignalR'da `connection.on` ve `connection.start` arasındaki fark nedir?
+- **A:** 
+    - **`on()`**: "Telsiz dinleyicisi" gibidir. Veri (alert) geldikçe çalışır.
+    - **`start()`**: "Telsizi fişe takıp kuleye bağlanmak" gibidir. Sadece bir kez (başlangıçta) çalışır. Bağlantı durumunu (Yeşil/Kırmızı ışık) burada yönetiriz.
+
+- **Q:** JS'de `HubConnectionBuilder` çağırırken `new` kullanmazsak ne olur?
+- **A:** `Uncaught TypeError: Class constructor tt cannot be invoked without 'new'` hatası alırsın. Modern JS'de "Class" olan yapıları mutlaka `new` anahtar kelimesiyle başlatmalısın.
+
+- **Q:** CORS hatasındaki `AllowCredentials()` neden bu kadar önemli?
+- **A:** SignalR, bağlantı sırasında çerezler (cookies) veya kimlik bilgileri taşımak ister. Tarayıcı ise güvenlik gereği sunucudan açıkça "Evet, bu özel bilgilerin taşınmasına izin veriyorum" onayını (`true` değeri) bekler. Bu onayı sunucu tarafında `.AllowCredentials()` ile veririz.
+
+- **Q:** Tarayıcıda `localhost:5072` çalışırken neden Docker içindeki Notification'a bağlanabiliyor?
+- **A:** Docker Port Mapping sayesinde. Docker, Host (Windows) üzerindeki 5072 portunu dinler ve oraya gelen her şeyi konteynerin içine fırlatır.
+
+- **Q:** Docker dışındaki uygulamalar için hangi terimi kullanmalıyız?
+- **A:** **"Host"** veya **"Host Machine"**. Örneğin: "Uygulama şu an host'ta (benim bilgisayarımda) çalışıyor, container'da değil."
+
+- **Q:** Watchtower uygulamasını HTML + vanilla js yapmak varken .NET Blazor app neden kullanılsın? HTML + vanilla js yerine örn. React (Next.js) kullanmanın avantajı olur mu?
+- **A:** 
+    - **Blazor Neden Kullanılır?**: Projenin geri kalanı C# ise, frontend'de de aynı modelleri (DTO) ve dili kullanmak hızı artırır, hata payını azaltır (Strong Typing).
+    - **React (Next.js) Avantajı**: Çok büyük ve karmaşık arayüzlerde "Bileşen" (Component) yapısı ve devasa kütüphane desteği (Tailwind, hazır UI kitleri) ile Vanilla JS'den çok daha yönetilebilir ve profesyonel sonuçlar verir.
+    - **Vanilla JS**: Bizim yaptığımız gibi küçük, hızlı ve "bağımsız" araçlar için en hafif ve en sorunsuz yoldur.

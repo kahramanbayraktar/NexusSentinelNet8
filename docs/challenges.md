@@ -63,3 +63,29 @@ Docker build for the Watchtower service failed with the following error:
 ### **Key Lessons Learned**
 - **Audit Project References:** Be extremely careful with Project References between different service projects in a microservice architecture. Services should typically only share "Shared" or "Domain" libraries, not reference each other directly.
 - **AI Verification:** Always double-check AI-generated `.csproj` entries or boilerplate code, as it might introduce broad dependencies that cause subtle build-time conflicts.
+
+## 4. SignalR Hub Connection Failures (Blazor vs Vanilla JS)
+
+### **Problem Symptom**
+Persistent "Connection closed with an error" or WebSocket handshake failures in the Blazor-based Watchtower project, both inside and outside of Docker.
+
+### **Root Causes**
+- **Lifecycle & Prerendering:** Blazor Server's complex lifecycle and default prerendering often conflict with SignalR connection timing, especially when external services are involved.
+- **Opaque Errors:** Blazor abstracts much of the SignalR handshake, making it difficult to debug low-level issues like CORS or Protocol mismatches compared to the browser console's direct feedback with JavaScript.
+
+### **Solution Implemented**
+- **Technology Pivot:** Shifted from Blazor to a lightweight **Vanilla HTML/JS + CSS** approach for the Watchtower UI.
+- **Benefit:** This provided direct access to the browser's developer tools (F12), making it easier to identify and fix CORS and connection issues in real-time.
+
+## 5. Docker Networking vs. Localhost Confusion (Connection Refused)
+
+### **Problem Symptom**
+The Watchtower UI could not connect to the Notification service from within a container, even though it worked locally.
+
+### **Root Cause**
+- **Localhost Trap:** Within a Docker container, `localhost` refers to the container itself, not the host machine or other containers. 
+- **Port Mapping Confusion:** Misunderstanding that `ports: 5072:8080` allows the *Host* to reach the container on 5072, but container-to-container communication must happen via the service name and internal port (e.g., `http://notification:8080`).
+
+### **Solution Implemented**
+- **Environment Variables:** Used .NET configuration to store the Hub URL and overrode it in `docker-compose.yml` with the correct Docker internal DNS (`notification:8080`).
+- **Hybrid Support:** Kept `localhost:5072` in `appsettings.json` for IDE development and used environment variables for Docker deployment.
