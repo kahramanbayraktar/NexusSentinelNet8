@@ -8,7 +8,9 @@
 
 The project is designed to simulate a real-world industrial monitoring system where thousands of IoT devices stream telemetry (Temperature, Humidity, Vibration) to a central backbone. The system processes "Hot" data for real-time dashboards and archives "Cold" data for long-term analytics, all while triggering critical alerts through a dedicated reliability layer.
 
-### 🏗️ Architecture at a Glance
+## 🏗️ System Architecture
+
+The blueprint of NexusSentinel's distributed event-driven pipeline:
 
 ```mermaid
 graph TD
@@ -25,6 +27,32 @@ graph TD
     RMQ -- Push --> NOTIFY[Notification Svc]
     NOTIFY -- SignalR --> DASH[Real-time Dashboard]
 ```
+
+---
+
+## 🖼️ Visual Showcase
+
+### 🖥️ Live Monitoring Interface
+The frontend layer consists of a high-level administrative dashboard and a specialized diagnostic tool.
+
+**Main Dashboard (Blazor Server)**
+![Main Dashboard](docs/images/dashboard.png)
+*Real-time orchestration and device state management via SignalR.*
+
+**Watchtower Diagnostic UI (Vanilla JS)**
+![Watchtower Diagnostic](docs/images/watchtower.png)
+*Ultra-low latency diagnostic view for system-wide health monitoring.*
+
+### ⚙️ Pipeline & Infrastructure
+Inside the engine: high-frequency data ingestion and distributed logging.
+
+**High-Frequency Telemetry Stream**
+![Distributed Pipeline](docs/images/iotsimulator-processor.png)
+*The binary Protobuf pipeline in action: IoT Simulators and Processor Service syncing states.*
+
+**Orchestrated Infrastructure**
+![Docker Compose Output](docs/images/dockercompose.png)
+*Self-healing microservices cluster managed via Docker Compose.*
 
 ---
 

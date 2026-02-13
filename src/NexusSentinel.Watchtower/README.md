@@ -1,11 +1,13 @@
-# NexusSentinel.Watchtower (Legacy)
+# NexusSentinel.Watchtower (Diagnostic Hub)
 
-**Status:** Passive / Archived
+**Status:** Specialized Tool
 
 ### Overview
-The Watchtower was an experimental diagnostic UI built during the early phases of NexusSentinel to test SignalR connectivity between microservices. 
+The **Watchtower** is a high-performance, ultra-low latency diagnostic UI built with Vanilla JavaScript and SignalR. 
 
-### Why is it passive?
-This project was superseded by the **Blazor-based Dashboard** and the **Vanilla JS Watchtower** (located in the shared components) for better integration and easier debugging of CORS/handshake issues.
+### Project Role
+While the **NexusSentinel.Dashboard** (Blazor Server) serves as the primary administrative portal for complex state management and configuration, the Watchtower remains a vital part of the ecosystem for specific scenarios:
+- **Low Overheard:** Optimized for fast rendering without the footprint of heavy UI frameworks.
+- **Diagnostic Focus:** Designed specifically for real-time alert analysis and debugging of cross-service communication.
 
-While this project is no longer actively maintained or included in the primary deployment pipeline, it remains in the codebase as a historical reference for Blazor SignalR client implementation.
+It represents the system's "High-Performance Diagnostic Path," complementing the feature-rich administrative experience of the main Dashboard.
