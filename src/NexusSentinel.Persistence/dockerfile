@@ -1,0 +1,22 @@
+# STEP 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+COPY ["src/NexusSentinel.Persistence/NexusSentinel.Persistence.csproj", "src/NexusSentinel.Persistence/"]
+COPY ["src/NexusSentinel.Shared/NexusSentinel.Shared.csproj", "src/NexusSentinel.Shared/"]
+
+RUN dotnet restore "src/NexusSentinel.Persistence/NexusSentinel.Persistence.csproj"
+
+COPY . .
+WORKDIR "/src/src/NexusSentinel.Persistence"
+RUN dotnet build "NexusSentinel.Persistence.csproj" -c Release -o /app/build
+
+# STEP 2: Publish
+FROM build AS publish
+RUN dotnet publish "NexusSentinel.Persistence.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# STEP 3: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "NexusSentinel.Persistence.dll"]

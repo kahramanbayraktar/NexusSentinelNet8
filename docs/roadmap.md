@@ -25,9 +25,10 @@ This document tracks the overall progress of the NexusSentinel distributed IoT m
 - [x] **Refresh Mechanism:** Periodic polling (or SignalR) for real-time updates.
 
 ## 🔔 Phase 5: Alerting & Advanced Features (CURRENT)
-- [ ] **Alert Processor:** Analyze data for thresholds (e.g., Temp > 50).
-- [~] **Notification:** Send alerts (Email/Simulate). *(SignalR connection to Dashboard SKIPPED/DEFERRED)*
-- [ ] **Historical Data:** Save time-series data to Elasticsearch or TimescaleDB.
+- [x] **Alert Processor:** Analyze data for thresholds (e.g., Temp > 50). (DONE)
+- [x] **Notification:** Send alerts via SignalR to Watchtower UI. (DONE)
+- [x] **Historical Data:** Save time-series data to Elasticsearch. (DONE)
+
 
 ## � Phase 6: Search & Analytics (Elasticsearch) (FUTURE)
 - [ ] **Data Sink:** Implement a Kafka Connect or custom Consumer to push data to Elasticsearch.

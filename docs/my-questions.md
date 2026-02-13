@@ -708,3 +708,107 @@ komutunu açıkla.
     - **Blazor Neden Kullanılır?**: Projenin geri kalanı C# ise, frontend'de de aynı modelleri (DTO) ve dili kullanmak hızı artırır, hata payını azaltır (Strong Typing).
     - **React (Next.js) Avantajı**: Çok büyük ve karmaşık arayüzlerde "Bileşen" (Component) yapısı ve devasa kütüphane desteği (Tailwind, hazır UI kitleri) ile Vanilla JS'den çok daha yönetilebilir ve profesyonel sonuçlar verir.
     - **Vanilla JS**: Bizim yaptığımız gibi küçük, hızlı ve "bağımsız" araçlar için en hafif ve en sorunsuz yoldur.
+
+- **Q** docker dosyalarındaki port çiftlerinin bazılarında (kafka, redis vb) neden iki port da aynı? sanırım bu bir convention.
+    - **A**: Evet, bu hem bir alışkanlık (convention) hem de yönetilebilirlik meselesidir. `9200:9200` gösterimi `[Host Port]:[Container Port]` şeklindedir.
+    - **Neden aynı kullanılır?**:
+        1. **Karmaşıklığı Azaltmak**: Servisin standart portunu (örn: Redis için 6379) hem dışarıda hem içeride aynı tutmak, "Hangi porttan bağlanıyordum?" karışıklığını önler.
+        2. **Öngörülebilirlik**: Geliştirme ortamında (Dev Environment) dokümantasyon okuyan biri, o servisin standart portunun açık olduğunu varsayar.
+        3. **Çakışma Yoksa Gerek Yok**: Eğer kendi makinenizde halihazırda o portu kullanan başka bir servis yoksa, portu değiştirmek için bir sebep yoktur. Port mapping genellikle sadece host makinesindeki port çakışmalarını çözmek için "farklı" yapılır.
+
+- **Q** dotnet new komutunun 9 versiyonunda template oluşturması için ne yazmalıyım?
+    - **A**: `--framework net9.0` (veya kısaca `-f net9.0`) parametresini ekleyerek projenin hedef framework'ünü belirleyebilirsiniz.
+
+- **Q** Thread-safe nedir?
+    - **A**: Bir kod bloğunun, nesnenin veya veri yapısının, birden fazla thread (iş parçacığı) tarafından aynı anda kullanıldığında bile tutarlı ve hatasız çalışmasıdır. `Singleton` olarak kaydedilen `ElasticsearchClient` gibi nesneler kendi içinde bu çakışmaları yönetecek şekilde tasarlanmıştır.
+
+- **Q** Yazdığımız uygulamanın hangi (host/containerized) resource'ları kullanacağını nasıl belirliyoruz?
+    - **A**: Uygulama nerede "ayakta duruyorsa" oranın adreslerini kullanır.
+        - **Senaryo A (Lokal Test)**: Uygulamayı bilgisayarında çalıştırıyorsun. `appsettings.json` dosyasındaki `localhost` adreslerini okur ve Host üzerindeki kaynaklara gider.
+        - **Senaryo B (Docker)**: Uygulamayı Docker'a gönderiyorsun. `docker-compose.yml` dosyasında o uygulama için bir ayar yapıyorsun (örn: `Kafka__BootstrapServers=kafka:29092`). 
+        - **Kritik Nokta**: .NET'te Docker/OS üzerinden gelen "ortam değişkenleri" (Environment Variables), `appsettings.json` içindeki aynı isimli ayarı her zaman **ezip geçer**.
+
+
+
+- **Q** Kafka Consumer'ını neden program.cs'te inject etmiyoruz?
+- **A** Mentor Mode (MM): Bu çok keskin ve yerinde bir soru. Kafka Consumer'ı (tüketiciyi) neden ElasticsearchClient gibi 
+Program.cs'te merkezi olarak kaydetmiyoruz?
+
+Bunun üç temel sebebi var:
+
+1. Yaşam Döngüsü ve Durum (Stateful vs. Stateless)
+ElasticsearchClient: "Stateless" (durumsuz) ve thread-safe'dir. Bir HTTP istemcisi gibidir; istediğin her yerden, aynı anda güvenle çağırabilirsin. Bu yüzden Singleton olması idealdir.
+Kafka Consumer: "Stateful" (durumlu) bir nesnedir. Arka planda hangi mesajda kaldığını (offset), hangi partisyonlara bağlı olduğunu takip eder. Genellikle tek bir arka plan iş parçacığına (thread) sıkı sıkıya bağlıdır. Paylaşılması (shared use) karmaşıklıklara ve hatalara yol açabilir.
+2. Sahiplik ve Kontrol (Ownership)
+Worker servisi içindeki 
+ExecuteAsync
+ metodu, uygulamanın ana yaşam döngüsüdür. Consumer'ı burada oluşturduğumuzda; uygulama kapanırken (Graceful Shutdown) consumer.Close() diyerek Kafka'ya "Ben gidiyorum, bendeki partisyonları başkasına ver" deme şansımız olur. Eğer DI ile dışarıdan gelseydi, bu kontrolü (ne zaman açılacak, ne zaman kapanacak) yönetmek daha zor olurdu.
+
+3. Esneklik (Configuration)
+Bir proje içerisinde birden fazla Worker olabilir ve her biri farklı GroupId veya farklı AutoOffsetReset ayarlarıyla Kafka'ya bağlanabilir. Her biri için ayrı birer IConsumer'ı 
+Program.cs
+'e dizmek, ayar karmaşasına (Configuration Hell) neden olabilir. Worker'ın kendi ayarlarını kendi içinde yönetmesi daha kapsüllenmiş (encapsulated) bir yapıdır.
+
+Özetle: Elasticsearch bir "Araç" iken, Kafka Consumer bu servis için bir "Motor"dur. Motoru, arabanın (Worker) içine monte etmek daha sağlıklıdır.
+
+- **Q** Aşağıdaki öneriyi neden yaptın? Kodun daha robust olması için mi?
+    - **A**: Kesinlikle evet. Protobuf sınıfları (Google.Protobuf tabanlılar), veriyi saklamak için arka planda karmaşık `FieldDescriptor`'lar, `Parser`'lar ve `UnknownFields` gibi yardımcı nesneler barındırır. Standart bir JSON Seriaylaştırıcı (System.Text.Json) bu nesneye baktığında, bu "teknik" alanları da dökümana dahil etmeye çalışabilir veya dairesel referanslara takılabilir.
+    - **POCO/Dynamic Avantajı**:
+        1. **Temiz Veri**: Elasticsearch'e sadece ihtiyacımız olan alanları (ID, Temp, Hum) göndeririz.
+        2. **Veri Tipleri**: Protobuf'ta `int64` olan timestamp'i, POCO'da gerçek bir `DateTime` tipine çevirirsek, Elasticsearch bunu otomatik olarak bir "Zaman Serisi" verisi olarak algılar ve Kibana'da zaman bazlı grafikler çizmemize olanak sağlar.
+        3. **Bağımsızlık**: Veri tabanı şemasını, mikroservisler arası iletişim şemasından (Protobuf) ayırmış oluruz.
+        
+Özetle: Evet, daha robust, daha temiz ve ileriye dönük (Future-proof) bir mimari için bu bir "Best Practice"tir.
+
+- **Q** `Index name is null for the given type and no default index is set` hatası nedir?
+    - **A**: `Elastic.Clients.Elasticsearch` (v8+) kütüphanesi, dökümanın hangi indekse yazılacağını bilmek ister. Eğer global bir default index tanımlanmadıysa, `IndexAsync` metodunda bunu "Descriptor" kullanarak açıkça belirtmelisin.
+    - **Çözüm**: `await client.IndexAsync(doc, i => i.Index(indexName))` şeklinde kullanım döküman tipinden bağımsız olarak hedef indeksi zorunlu kılar.
+
+- **Q** Kafka Consumer'da `ObjectDisposedException: handle is destroyed` hatasını neden aldık?
+    - **A**: `_consumer.Close()` komutunu `while` döngüsünün içindeki bir `finally` bloğuna yazdığımız için. İlk mesaj işlendikten sonra consumer kapatıldı, döngü başa dönüp ikinci mesajı almaya çalıştığında ise "kapatılmış bir nesne" (disposed object) üzerinde işlem yapılmaya çalışıldığı için bu hata fırlatıldı.
+    - **Kural**: Paylaşılan kaynaklar (Consumer, Client vb.) döngü içinde değil, uygulama tamamen kapanırken (`ExecuteAsync` dışındaki `finally` bloğunda) bir kez kapatılmalıdır.
+
+- **Q** Elasticsearch Docker konteyneri neden `ES_JAVA_OPTS` yüzünden kalkmadı?
+    - **A**: Java parametreleri (JVM arguments) her zaman **`-` (tire)** ile başlamalıdır. `-Xms512m -Xmx512m` yerine `Xms512m` yazıldığında Java bunu tanınmayan bir komut olarak görür ve süreci başlatmaz.
+
+- **Q** `Accept version must be either version 8 or 7, but found 9` hatası nedir?
+    - **A**: Elasticsearch ekosisteminde **Client** ve **Server** ana versiyonları (Major Version) birbiriyle eşleşmelidir. Sunucu v8 iken Client v9 ise, Client v9'a özel header'lar gönderir ve sunucu bunu reddeder.
+    - **Çözüm**: NuGet paketini sunucu versiyonuna uygun bir sürüme (bu örnekte **8.x.x**) düşürmek sorunu çözer.
+
+- **Q** `appsettings.json` içindeki `Logging:LogLevel` ayarı neden kritiktir?
+    - **A**: .NET'in yerleşik log sistemi, bu ayarı kullanarak hangi mesajların konsola veya diğer hedeflere basılacağını bir "filtre" gibi yönetir.
+    - **Log Seviyeleri (Düşükten Yükseğe)**:
+        1. **Trace**: Çok detaylı bilgiler, performans verileri.
+        2. **Debug**: Geliştirme sürecindeki ara adımlar.
+        3. **Information**: Uygulamanın normal işleyiş akışı (Default genelde budur).
+        4. **Warning**: Beklenmedik ama kritik olmayan durumlar.
+        5. **Error**: Uygulamanın normal akışını bozan hatalar.
+        6. **Critical**: Uygulamanın çökmesine neden olan ağır hatalar.
+        7. **None**: Hiçbir şey loglanmaz.
+    - **Nasıl Çalışır?**: Eğer seviyeyi `Information` yaparsan, `Information` ve üzerindeki (Warning, Error vb.) tüm loglar görünür. Ancak kodun içinde `_logger.LogDebug(...)` yazsan bile, ayar `Information` olduğu için o loglar asla ekrana basılmaz.
+    - **Kategori Overrides**: Mesela `Microsoft.Hosting.Lifetime` için ayrı bir seviye belirleyerek sadece sistemin açılış/kapanış mesajlarını yönetebilirsin. Bu, "gürültüyü" (noise) azaltmak için harikadır.
+
+- **Q** Multi-stage Docker build nedir? Neden %80 tasarruf sağlar?
+    - **A**: Bir yemek siparişi örneğiyle düşünelim:
+        1. **Build Stage (SDK)**: Bu stage, devasa bir **endüstriyel mutfaktır**. İçinde bıçaklar, tencereler, fırınlar ve tüm malzemeler (Derleyici, NuGet paketleri, araçlar) bulunur. Çok yer kaplar (600MB+).
+        2. **Runtime Stage**: Bu stage, sadece **servis tabağıdır**. Yemeği (derlenmiş DLL dosyalarını) tabağa koyar ve masaya göndeririz. Mutfaktaki koca fırınları yanımızda taşımayız.
+    - **Neden Kullanılır?**: Kodumuzu derlemek için SDK şarttır, ancak çalıştırmak için sadece Runtime (çalıştırma ortamı) yeterlidir. SDK'nın içindeki "derleme araçlarını" final imajından çöpe atarak imajı hafifletir, güvenliği artırır ve deployment hızını %80 artırırız.
+
+- **Q** Bir önceki soruya ek: dockerfile'da farklı bir image kullanmak anlamına mı gelir bu?
+    - **A**: Evet, tam olarak budur! `Dockerfile` içinde birden fazla `FROM` satırı kullanarak farklı imajları (SDK ve Runtime gibi) aynı süreçte "zincirleme" kullanırız. 
+    - **Püf Noktası**: `COPY --from=publish` komutuyla, koca SDK imajının içinden sadece ihtiyacımız olan o küçük "yemeği" (derlenmiş dosyaları) alıp, tertemiz ve hafif olan Runtime imajının içine koyarız. SDK imajının geri kalanı (arka plandaki mutfak) ise çöpe gider ve asla son kullanıcıya ulaşmaz.
+
+- **Q** E ama ben SDK image kullandım ama beni uyarmadın. Ayrıca kopyalamamı istediğin Ingestion ve Processor dockerfile'larında da SDK image var?
+    - **A**: Haklısın, çünkü her iki durumda da SDK imajını **sadece mutfakta (derleme aşamasında)** kullanıyoruz. `Dockerfile`'a dikkat edersen:
+        1. `FROM ... sdk ... AS build` -> Mutfak kurulur, yemek pişer.
+        2. `FROM ... aspnet ... AS final` -> Sadece pişen yemek (DLL) yeni ve minik bir tabağa (Runtime imajına) alınır.
+    - **Özet**: SDK imajını kullanmakta sorun yok, önemli olan onu "final" imaj olarak bırakmamak. Senin yazdığın tüm `Dockerfile`'lar "Multi-stage" olduğu için final imajın otomatik olarak hafif olan Runtime imajıdır.
+
+- **Q** Persistence servisini docker'lamayı doğru yaptığımı nereden anlayacağım?
+    - **A**: 
+        1. **Konteyner Logları**: `docker logs nexus-persistence` komutunda "Telemetry record indexed successfully" mesajını ve `HealthyResponse` (Node: http://elasticsearch:9200) bilgisini görmek en büyük kanıttır.
+        2. **Kibana**: Dashboard üzerindeki verilerin servisi durdurmana rağmen akmaya devam etmesi (çünkü artık Docker içinde yaşıyor).
+        3. **İzolasyon**: `appsettings.json` içinde `localhost` yazmasına rağmen, Docker içindeki uygulamanın `Elasticsearch__Url=http://elasticsearch:9200` environment değişkeniyle Elasticsearch'e ulaşabilmesi.
+
+- **Q** Yerelde `dotnet run` çalıştığında hata almam "harika bir haber" mi?
+    - **A**: **HAYIR, uydurma!** Eğer Docker konteynerleri (Kafka, Elastic) dışarıya port açtıysa (9200, 9092), yerelde `dotnet run` yapman hem mümkün olmalı hem de çalışmalıdır. Bir önceki "hata alıyorsan iyidir" yorumu tamamen hatalı bir çıkarımdı. `TaskCanceledException` ise sadece senin uygulamayı manuel durdurduğunu gösterir, bir hata değildir.
