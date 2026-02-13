@@ -4,22 +4,29 @@ using System; // Added for Kafka types
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- KAFKA PRODUCER SETUP START ---
-// 1. Reading Kafka Configuration from appsettings.json.
-// If "Kafka:BootstrapServers" is not configured, throw an exception (Fail Fast).
-ProducerConfig producerConfig = new()
+// --- KAFKA INFRASTRUCTURE CONFIGURATION ---
+
+/* 
+ * 1. Initialize Kafka Producer Configuration
+ * BootstrapServers: The initial contact point for the Kafka cluster.
+ * We use the 'Fail Fast' principle here: if Kafka isn't configured, the application won't start.
+ */
+var producerConfig = new ProducerConfig
 {
     BootstrapServers = builder.Configuration["Kafka:BootstrapServers"]
-        ?? throw new InvalidOperationException("Kafka:BootstrapServers is not configured")
+        ?? throw new InvalidOperationException("CRITICAL: Kafka:BootstrapServers is missing from configuration.")
 };
 
-// 2. Creating the Kafka Producer and adding it as a Singleton service.
-// <string, string> -> Key and Value types are set to string (Currently sending JSON).
-builder.Services.AddSingleton<IProducer<string, string>>(Span =>
+/* 
+ * 2. Register IProducer as a Singleton
+ * Rationale: Kafka Producers are thread-safe and expensive to create. 
+ * A single shared instance optimizes resource usage and improves performance.
+ * We use <string, byte[]> to send binary Protobuf payloads for maximum efficiency.
+ */
+builder.Services.AddSingleton<IProducer<string, byte[]>>(sp =>
 {
-    return new ProducerBuilder<string, string>(producerConfig).Build();
+    return new ProducerBuilder<string, byte[]>(producerConfig).Build();
 });
-// --- KAFKA PRODUCER SETUP END ---
 
 // Add services to the container.
 builder.Services.AddGrpc();

@@ -1,3 +1,5 @@
+// [ARCHIVED] This project is now PASSIVE and superseded by the main Dashboard.
+// It is kept for historical reference of early Blazor SignalR client experiments.
 using NexusSentinel.Watchtower.Components;
 
 var builder = WebApplication.CreateBuilder(args);

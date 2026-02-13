@@ -1,16 +1,26 @@
-namespace NexusSentinel.Processor;
-
-using System.Text.Json;
 using Confluent.Kafka;
 using NexusSentinel.Shared.Protos;
 using StackExchange.Redis;
+using Google.Protobuf;
+using System.Text.Json;
 
+namespace NexusSentinel.Processor;
+
+/// <summary>
+/// Background worker responsible for maintaining the "Hot Path" (Current State) of devices.
+/// It consumes binary telemetry events from Kafka, parses them via Protobuf, 
+/// and updates the real-time cache in Redis.
+/// </summary>
 public class Worker(ILogger<Worker> logger, IConfiguration configuration, IConnectionMultiplexer redis) : BackgroundService
 {
     private readonly ILogger<Worker> _logger = logger;
     private readonly IConfiguration _configuration = configuration;
     private readonly IDatabase _redisDb = redis.GetDatabase();
 
+    /// <summary>
+    /// Core execution loop for the Kafka consumer.
+    /// Implements graceful shutdown and commit-on-success patterns.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var config = new ConsumerConfig
@@ -18,72 +28,74 @@ public class Worker(ILogger<Worker> logger, IConfiguration configuration, IConne
             BootstrapServers = _configuration["Kafka:BootstrapServers"],
             GroupId = _configuration["Kafka:GroupId"],
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = false            
+            EnableAutoCommit = false // Manual commit for at-least-once delivery guarantees
         };
 
-        using var consumer = new ConsumerBuilder<string, string>(config).Build();
+        // Building consumer with <string, byte[]> to match the refined producer
+        using var consumer = new ConsumerBuilder<string, byte[]>(config).Build();
 
         var topic = _configuration["Kafka:Topic"] ?? "telemetry";
         consumer.Subscribe(topic);
 
-        _logger.LogInformation($"Kafka Consumer listening on topic: {topic}");
-        
+        _logger.LogInformation("Processor initialized. Syncing 'telemetry' stream to Redis.");
+
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                // This inner try-catch is for handling Kafka consumer errors.
-                // The outer try-catch is for handling application-level errors.
                 try
                 {
-                    // Wait for a message from Kafka.
-                    // We use cancellation token to stop the consumer gracefully.
-                    // If the token is cancelled, the consumer will stop consuming messages.
-                    // cancellationToken is set to true when the application is shutting down.
+                    // Blocking call to consume messages with a timeout/cancellation hook
                     var result = consumer.Consume(stoppingToken);
 
-                    if (result != null)
+                    if (result?.Message?.Value != null)
                     {
-                        var json = result.Message.Value;
-                        var deviceId = result.Message.Key;
+                        /* 
+                         * REFACTOR: Protobuf Deserialization
+                         * Using the static Parser avoids the overhead of JSON reflection.
+                         */
+                        var telemetry = TelemetryRecord.Parser.ParseFrom(result.Message.Value);
 
-                        // Deserialization
-                        var telemetry = JsonSerializer.Deserialize<TelemetryRecord>(json);
+                        _logger.LogInformation("[HOT-PATH] Syncing Device: {Id} | State: {Temp}°C, {Hum}%",
+                            telemetry.DeviceId, telemetry.Temperature, telemetry.Humidity);
 
-                        if (telemetry != null)
-                        {
-                            _logger.LogInformation($"[Processing] Device: {deviceId} | Temp: {telemetry.Temperature}°C | Hum: {telemetry.Humidity}%");
-                        }
+                        /*
+                         * PERSISTENCE: Updating the Real-time Cache
+                         * Even though we consume binary, we store JSON in Redis 
+                         * to ensure compatibility with various dashboard technologies (Blazor, React, etc.)
+                         */
+                        string jsonState = JsonSerializer.Serialize(telemetry);
 
-                        // Best practice: Store with TTL (Time To Live) to prevent memory leaks and stale data accumulation.
-                        // Memory leaks if we don't remove the data after some time.
-                        // await _redisDb.StringSetAsync($"device_data:{deviceId}", json, TimeSpan.FromMinutes(5));
+                        // Update current state in Redis without TTL to represent the 'last known good' status
+                        await _redisDb.StringSetAsync($"device:{telemetry.DeviceId}", jsonState);
 
-                        // Not fire-and-forget, but await to make sure the message is processed before moving to the next one.
-                        await _redisDb.StringSetAsync($"device:{deviceId}", json);
-
-                        // We say "I'm done with this message" to Kafka.
+                        // Mark message as processed in Kafka offsets
                         consumer.Commit(result);
                     }
                 }
                 catch (OperationCanceledException)
                 {
+                    _logger.LogWarning("Consumer shutdown initiated via signal.");
                     break;
                 }
                 catch (Exception ex)
                 {
-                    // Just logging for now, but in production we should handle this more gracefully.
-                    // For example, we could use a dead-letter queue to store the failed messages.
-                    _logger.LogError(ex, "Error processing message");
+                    _logger.LogError(ex, "Transient error during message processing. Attempting recovery...");
+                    await Task.Delay(1000, stoppingToken); // Throttling on error
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fatal Consumer Error");
+            _logger.LogCritical(ex, "Fatal failure in Processor Service loop.");
         }
         finally
         {
+            /*
+             * GRACEFUL SHUTDOWN:
+             * consumer.Close() informs the group coordinator that this member is leaving,
+             * triggering an immediate rebalance for other active members.
+             */
             consumer.Close();
         }
     }

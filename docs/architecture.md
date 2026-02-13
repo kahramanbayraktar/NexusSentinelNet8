@@ -1,35 +1,35 @@
 # NexusSentinel - Living Architecture Document
 
-**Status:** Active Development  
-**Last Updated:** 2026-02-05
+**Status:** Completed Foundations / Maintenance  
+**Last Updated:** 2026-02-13
 
 ---
 
-## 1. Technical Strategy & Decisions
+## 1. Technical Strategy & Design Patterns
 
 ### 1.1 Messaging & Event Streaming
-We deliberately distinguish between High-Throughput streaming and Reliable Messaging to learn both patterns.
+NexusSentinel deliberately distinguishes between **High-Throughput Streaming** and **Reliable Messaging** to implement specialized architectural patterns for different data types.
 
 *   **Kafka (Telemetry Pipeline):**
-    *   **Role:** High-throughput data ingestion for IoT telemetry (Speed > Absolute Reliability).
-    *   **Pattern:** Fire-and-forget, Stream Processing.
-    *   **Retention:** Logs are kept for replayability/debugging.
-*   **RabbitMQ (Operational Events):**
-    *   **Role:** Critical Alerts, System Commands, Control Plane (Reliability > Speed).
-    *   **Pattern:** Message Queuing, Routing, Confirmation (Ack/Nack).
-    *   **Guarantee:** At-least-once delivery is required here.
+    *   **Role:** High-velocity data ingestion for millions of IoT telemetry points.
+    *   **Philosophy:** Speed and throughput are prioritized. Kafka acts as a persistent log and a shock absorber (Backpressure handling).
+    *   **Retention:** Events are stored on disk, allowing for later analysis or system state reconstruction (Event Sourcing light).
 
-### 1.2 Future Roadmap (Polyglot & Extensibility)
-The architecture is designed to be language-agnostic. We define contracts first.
+*   **RabbitMQ (Operational Alerts):**
+    *   **Role:** Routing critical alerts, system commands, and control plane signals.
+    *   **Philosophy:** Reliability and complex routing. We use RabbitMQ's exchange/binding system to ensure alerts reach the correct destinations (Dashboard, SMS, Loggers).
+    *   **Guarantee:** Supports Acknowledgements (Ack) to ensure no critical message is lost.
 
-*   **GoLang Migration:** The "Ingestion Service" is a candidate to be rewritten in Go in the future for raw socket performance.
-*   **Frontend Diversity:** While the Admin Dashboard is Blazor, the backend APIs must support future React/Vue portals for end-customers.
+### 1.2 Storage Strategy
+*   **Redis (Hot Path):** Stores the "Current State" of every device. Provides sub-millisecond access for the Real-time Dashboard.
+*   **Elasticsearch (Cold Path / Analytics):** Stores historical telemetry for time-series analysis and long-term logging.
+*   **Protobuf Serialization:** Used across the entire pipeline (gRPC, Kafka, RabbitMQ) to ensure minimal payload sizes and strictly typed contracts between services.
 
 ---
 
-## 2. High-Level Architecture
+## 2. System Architecture
 
-### 2.1 System Diagram
+### 2.1 Technical Diagram
 
 ```mermaid
 graph TD
@@ -40,73 +40,84 @@ graph TD
     INGEST -- "Produce (Telemetry)" --> KAFKA{Kafka Topic: telemetry}
     
     %% Processing Layer
-    KAFKA -- "Consume (Group: processing)" --> PROC[Processor Service]
-    KAFKA -- "Consume (Group: alerting)" --> ALERT_PROC[Alert Processor]
-    PROC -- "Queries/Analyses (AI)" --> AI_MOD[AI/Logic Module]
+    KAFKA -- "Consume (Group: state)" --> PROC[Processor Service]
+    KAFKA -- "Consume (Group: alert)" --> ALERT_PROC[Alert Processor]
+    KAFKA -- "Consume (Group: persist)" --> PERSIST[Persistence Service]
     
     %% Data Persistence & Caching
-    PROC -- "Cache State" --> REDIS[(Redis)]
-    PROC -- "Index Logs" --> ELASTIC[(Elasticsearch)]
+    PROC -- "Update State" --> REDIS[(Redis)]
+    PERSIST -- "Index Records" --> ELASTIC[(Elasticsearch)]
     
     %% Alerting Path (Critical)
     ALERT_PROC -- "Publish (Alert)" --> RMQ{RabbitMQ Exchange: alerts}
     
     %% Notification Layer
-    RMQ -- "Consume (Queue: notify)" --> NOTIFY[Notification Service]
+    RMQ -- "Consume (Queue: dashboard)" --> NOTIFY[Notification Service]
     NOTIFY -- "Push (WebSockets)" --> SIGNALR[SignalR Hub]
     
     %% Frontend
-    REDIS -- "Fetch State" --> DASH[Blazor Dashboard]
-    SIGNALR -- "Real-time Updates" --> WATCH[Watchtower / Dashboard]
-    DASH -- "HTTP/REST" --> API[Read/Command API]
+    DASH[Blazor Dashboard] -- "Get Latest" --> REDIS
+    SIGNALR -- "Live Alarms" --> DASH
+    KIBANA[Kibana] -- "Visualize" --> ELASTIC
 
     %% Styles
-    classDef service fill:#007bff,color:#fff,stroke:#0056b3,stroke-width:2px
-    classDef broker fill:#fd7e14,color:#fff,stroke:#d66a0a,stroke-width:2px
-    classDef db fill:#28a745,color:#fff,stroke:#1e7e34,stroke-width:2px
-    classDef ai fill:#6f42c1,color:#fff,stroke:#59359a,stroke-width:2px
-    classDef client fill:#e83e8c,color:#fff,stroke:#b21f2d,stroke-width:2px
+    classDef service fill:#2d3436,color:#fff,stroke:#636e72,stroke-width:2px
+    classDef broker fill:#d63031,color:#fff,stroke:#ff7675,stroke-width:2px
+    classDef db fill:#0984e3,color:#fff,stroke:#74b9ff,stroke-width:2px
+    classDef client fill:#6c5ce7,color:#fff,stroke:#a29bfe,stroke-width:2px
 
-    class INGEST,PROC,ALERT_PROC,NOTIFY,SIGNALR,DASH,WATCH,API service
+    class INGEST,PROC,ALERT_PROC,NOTIFY,PERSIST service
     class KAFKA,RMQ broker
     class REDIS,ELASTIC db
-    class AI_MOD ai
-    class IOT client
+    class IOT,DASH,KIBANA client
 ```
 
-### 2.2 Data Flow Journey
+### 2.2 Component Roles
 
-1.  **Ingestion (The Gatekeeper):**
-    *   Thousands of IoT devices connect via **gRPC** (for low latency/overhead) to the **Ingestion Service**.
-    *   *Why gRPC?* Smaller binaries, strictly typed (Protobuf), and supports multiplexed streaming.
-    *   This service does ZERO logic. It validates headers and immediately pushes raw data to **Kafka**.
+1.  **Ingestion Service (gRPC Server):**
+    *   Accepts high-concurrency gRPC streams from IoT devices.
+    *   Validates device identity and forwards Protobuf payloads to the Kafka `telemetry` topic.
+    *   *Rationale:* Minimal processing ensures high availability and low latency at the entry point.
 
-2.  **Buffering (The Shock Absorber):**
-    *   **Kafka** acts as a buffer. If the database is slow or the backend is down, data piles up here safely without crashing the system (Backpressure handling).
+2.  **Processor Service (Kafka Consumer):**
+    *   Maintains the "Source of Truth" in **Redis**.
+    *   Updates the last known temperature, humidity, and status for every device.
 
-3.  **Processing & Intelligence (The Brain):**
-    *   **Processor Service** subscribes to Kafka.
-    *   It parses the data (e.g., checks Temperature > 100).
-    *   **AI Integration:** It runs a lightweight heuristic or calls an AI agent to detect anomalies (e.g., "Vibration pattern suggests imminent motor failure").
-    *   **Hot Data:** Updates the latest device state in **Redis** (Key-Value) for instant dashboard access.
-    *   **Cold Data:** Archives logs to **Elasticsearch** for history/analytics.
+3.  **Persistence Service (Kafka Consumer):**
+    *   Drives long-term storage by indexing every telemetry event into **Elasticsearch**.
+    *   Implements daily index patterns for efficient data lifecycle management.
 
-4.  **Critical Alerts (The Fast Lane):**
-    *   **Alert Processor** subscribes to Kafka. If it detects a critical anomaly, it publishes an event to **RabbitMQ**.
-    *   *Why RabbitMQ here?* We need "Routing" (e.g., Route 'Critical' to SMS, 'Warning' to Dashboard only) and reliability acknowledgements.
+4.  **Alert Processor (Kafka Consumer / Logic Engine):**
+    *   Monitors the telemetry stream for business rule violations (e.g., Temperature > threshold).
+    *   Generates `AlertMessage` events and publishes them to **RabbitMQ**.
 
-5.  **Real-Time Push (The Visibility):**
-    *   **Notification Service** listens to RabbitMQ.
-    *   It pushes a message to **SignalR Hub**, which instantly notifies connected **Blazor Dashboards**.
+5.  **Notification Service (RabbitMQ Consumer / SignalR Hub):**
+    *   The bridge between the backend event bus and the end-user.
+    *   Uses **SignalR** to push alerts directly to browser clients in real-time.
 
 ---
 
-## 3. Implementation Phases (Rough Plan)
+## 3. Infrastructure & Deployment
 
-1.  **Phase 1: Foundation:** Solution structure, Docker Compose (Kafka, Redis), and basic "Hello World" connection.
-2.  **Phase 2: Ingestion Pipeline:** gRPC Server -> Kafka Producer / Consumer.
-3.  **Phase 3: Processing & Storage:** Redis integration, Docker Compose (Elastic), and core logic.
-4.  **Phase 4: Critical Path:** RabbitMQ implementation and Notification Service.
-5.  **Phase 5: Visualization:** Blazor Dashboard & SignalR.
+### 3.1 Containerization
+The entire solution is Dockerized using **Multi-stage builds**:
+- **Build Stage:** Uses .NET SDK images to restore and compile code.
+- **Runtime Stage:** Uses lightweight ASP.NET/Runtime images, resulting in production containers as small as 80-100MB.
 
-ADDITON: Use Kubernetes for container orchestration and horizontal scaling.
+### 3.2 Orchestration
+While currently managed via **Docker Compose** for developer productivity, the architecture is **Ready-for-K8s**:
+*   State is externalized (Redis/Elastic).
+*   Services are stateless and horizontally scalable (via Kafka Consumer Groups).
+*   Communication is host-name based (Service Discovery).
+
+---
+
+## 4. Current Progress
+
+- [x] **Phase 1: Foundation:** Infrastructure setup (Kafka, Redis, RabbitMQ).
+- [x] **Phase 2: Ingestion:** gRPC to Kafka flow.
+- [x] **Phase 3: State Management:** Redis integration and Device State tracking.
+- [x] **Phase 4: Alerting & Notifications:** RabbitMQ and SignalR real-time paths.
+- [x] **Phase 5: Persistence:** Elasticsearch integration and daily indexing.
+- [ ] **Phase 6: Advanced Analytics:** Implementation of AI-driven anomaly detection.
+- [ ] **Phase 7: Cloud Readiness:** Migration to Kubernetes templates (Helm).

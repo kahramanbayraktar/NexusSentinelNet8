@@ -38,7 +38,7 @@
     protected override async Task OnInitializedAsync()
     {
         hubConnection = new HubConnectionBuilder()
-        .WithUrl(config["NotificationUrl"])
+        .WithUrl(config["NotificationUrl"]!)
         .Build();
 
         hubConnection.On<AlertDto>("ReceiveAlert", (alert) =>

@@ -4,49 +4,79 @@ using Google.Protobuf;
 using NexusSentinel.Shared.Protos;
 using Microsoft.AspNetCore.SignalR;
 using NexusSentinel.Notification.Hubs;
-using System.Threading;
 
+namespace NexusSentinel.Notification.Workers;
+
+/// <summary>
+/// The NotificationWorker acts as a real-time bridge between the backend event bus (RabbitMQ) 
+/// and the frontend notification layer (SignalR).
+/// It consumes critical alerts and broadcasts them to all connected dashboard instances.
+/// </summary>
 public class NotificationWorker(
-    ILogger<NotificationWorker> logger, 
+    ILogger<NotificationWorker> logger,
     IConfiguration config,
     IHubContext<AlertHub> hubContext) : BackgroundService
 {
-    // TODO: I need to understand this code better.
-    // Receives alerts from RabbitMQ and forwards them to SignalR.
-    // That means, it is both a RabbitMQ consumer and a SignalR server.
+    /// <summary>
+    /// Initializes the reliable messaging connection and begins listening for alert events.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("NotificationWorker started.");
+        logger.LogInformation("Notification Gateway initialized. Listening for system alerts via RabbitMQ.");
 
-        var factory = new ConnectionFactory { HostName = config["RabbitMQ:HostName"]! };
+        var factory = new ConnectionFactory { HostName = config["RabbitMQ:HostName"] ?? "localhost" };
+
+        // Resource management via 'using' ensures connections are closed on service stop
         using var connection = await factory.CreateConnectionAsync(stoppingToken);
         using var channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-        await channel.ExchangeDeclareAsync(config["RabbitMQ:ExchangeName"]!, ExchangeType.Fanout);
-        await channel.QueueDeclareAsync(config["RabbitMQ:QueueName"]!, durable: true, exclusive: false, autoDelete: false);
-        await channel.QueueBindAsync(config["RabbitMQ:QueueName"]!, config["RabbitMQ:ExchangeName"]!, "");
+        string exchange = config["RabbitMQ:ExchangeName"] ?? "alerts-exchange";
+        string queue = config["RabbitMQ:QueueName"] ?? "alerts-queue";
+
+        // Ensured infrastructure exists (Idempotent call)
+        await channel.ExchangeDeclareAsync(exchange, ExchangeType.Fanout);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueBindAsync(queue, exchange, "");
 
         var consumer = new AsyncEventingBasicConsumer(channel);
+
+        /* 
+         * EVENT HANDLER: Process incoming alert from RabbitMQ.
+         * The message is received as binary Protobuf, parsed, and then 
+         * projected to an anonymous JSON-compatible object for SignalR delivery.
+         */
         consumer.ReceivedAsync += async (model, ea) =>
         {
-            var alert = AlertMessage.Parser.ParseFrom(ea.Body.ToArray());
-            logger.LogInformation("Alert received for Device {Id}, pushing to SignalR!", alert.DeviceId);
+            try
+            {
+                var alert = AlertMessage.Parser.ParseFrom(ea.Body.ToArray());
 
-            await hubContext.Clients.All.SendAsync("ReceiveAlert", 
-            new {
-                deviceId = alert.DeviceId,
-                alertType = alert.AlertType,
-                currentValue = alert.CurrentValue,
-                thresholdValue = alert.ThresholdValue,
-                severity = alert.Severity,
-                timestamp = alert.Timestamp
-            }, stoppingToken);
+                logger.LogWarning("[GATEWAY] Alert dispatched to connected clients: Device {Id} ({Type})",
+                    alert.DeviceId, alert.AlertType);
 
+                // Push to all SignalR clients subscribing to "ReceiveAlert"
+                await hubContext.Clients.All.SendAsync("ReceiveAlert", new
+                {
+                    alert.DeviceId,
+                    alert.AlertType,
+                    alert.CurrentValue,
+                    alert.ThresholdValue,
+                    alert.Severity,
+                    alert.Timestamp
+                }, stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to dispatch alert to SignalR.");
+            }
         };
 
-        await channel.BasicConsumeAsync(queue: config["RabbitMQ:QueueName"]!, autoAck: true, consumer: consumer);
-        await Task.Delay(-1, stoppingToken);
+        // Start the continuous consumption process
+        await channel.BasicConsumeAsync(queue: queue, autoAck: true, consumer: consumer);
 
-        logger.LogInformation("NotificationWorker stopped.");
+        // Wait indefinitely until the background service is stopped
+        await Task.Delay(Timeout.Infinite, stoppingToken);
+
+        logger.LogWarning("Notification Gateway is shutting down.");
     }
 }

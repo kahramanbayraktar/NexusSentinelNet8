@@ -1,5 +1,5 @@
-using System.Runtime.InteropServices;
 using NexusSentinel.Notification.Hubs;
+using NexusSentinel.Notification.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +15,8 @@ builder.Services.AddSignalR(e =>
 });
 builder.Services.AddHostedService<NotificationWorker>();
 
-builder.Services.AddCors(options =>{
+builder.Services.AddCors(options =>
+{
     options.AddDefaultPolicy(builder =>
     {
         builder.SetIsOriginAllowed(_ => true) // allow all origins for development only
